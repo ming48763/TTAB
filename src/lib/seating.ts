@@ -1,6 +1,8 @@
 import type { ColumnMapping, StudentRow } from '../types'
 import { uid } from '../types'
 
+export type SeatGroupMode = 'chess' | 'pair' | 'team3' | 'team4' | 'team5'
+
 export type SeatInkStyle = 'color' | 'bw' | 'navy' | 'forest' | 'mint' | 'rose' | 'sun'
 
 export const SEAT_INK_STYLES: { id: SeatInkStyle; label: string; swatch: string }[] = [

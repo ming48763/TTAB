@@ -109,6 +109,8 @@ export function PlateNameTool({ family, onHome }: Props) {
   }
 
   const showIntroChrome = step === 'upload' || step === 'map' || step === 'choose'
+  const modeRailClass =
+    step === 'choose' || step === 'booth' ? 'is-current' : step === 'edit' ? 'is-done' : ''
 
   return (
     <div className={`app step-${step}`}>
@@ -123,11 +125,7 @@ export function PlateNameTool({ family, onHome }: Props) {
           <ol className="step-rail" aria-label="進度">
             <li className={step === 'upload' ? 'is-current' : 'is-done'}>匯入</li>
             <li className={step === 'map' ? 'is-current' : 'is-done'}>欄位</li>
-            <li
-              className={
-                step === 'choose' || step === 'booth' ? 'is-current' : step === 'edit' ? 'is-done' : ''
-              }
-            >
+            <li className={modeRailClass}>
               模式
             </li>
           </ol>
