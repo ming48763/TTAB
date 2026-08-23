@@ -197,8 +197,7 @@ button.brand-mark:focus-visible {
   display: block;
 }
 
-.tool-grid > :nth-child(3n) .tool-peek,
-.edit-mode-grid > :last-child .tool-peek {
+.tool-grid > :nth-child(3n) .tool-peek {
   left: auto;
   right: calc(100% + 12px);
 }

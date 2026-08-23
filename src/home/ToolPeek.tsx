@@ -1,7 +1,7 @@
 import { StandPreview } from '../components/StandPreview'
 import { DEFAULT_DESK, type LayoutSettings, type StudentRow } from '../types'
 
-type PeekKind = 'plates' | 'seats' | 'booth' | 'editor'
+type PeekKind = 'plates' | 'seats'
 
 const PEEK_STUDENT: StudentRow = {
   rowIndex: 0,
