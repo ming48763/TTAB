@@ -1,0 +1,86 @@
+import { useRef, useState } from 'react'
+import { parseExcelFile } from '../lib/excel'
+import type { ColumnMapping, StudentRow } from '../types'
+
+interface Props {
+  onLoaded: (payload: {
+    fileName: string
+    headers: string[]
+    rows: StudentRow[]
+    mappings: ColumnMapping[]
+  }) => void
+}
+
+export function ExcelUpload({ onLoaded }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function handleFile(file: File) {
+    setError(null)
+    setBusy(true)
+    try {
+      const buffer = await file.arrayBuffer()
+      const parsed = parseExcelFile(buffer)
+      onLoaded({
+        fileName: file.name,
+        headers: parsed.headers,
+        rows: parsed.rows,
+        mappings: parsed.mappings,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '讀取失敗')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="step-page">
+      <div className="panel upload-panel">
+        <div className="panel-head">
+          <h2>匯入名冊</h2>
+          <p>上傳 Excel（.xlsx / .xls / .csv），上傳後會自動進入欄位確認。</p>
+        </div>
+
+        <div
+          className={`dropzone ${dragging ? 'is-drag' : ''} ${busy ? 'is-busy' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            const file = e.dataTransfer.files?.[0]
+            if (file) void handleFile(file)
+          }}
+          onClick={() => inputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleFile(file)
+              e.target.value = ''
+            }}
+          />
+          <span className="dropzone-title">{busy ? '讀取中…' : '拖曳檔案到這裡，或點擊選擇'}</span>
+          <span className="dropzone-hint">第一列為表頭，其後每一列一位學生</span>
+        </div>
+
+        {error && <p className="form-error">{error}</p>}
+      </div>
+    </div>
+  )
+}
