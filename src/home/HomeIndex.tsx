@@ -1,12 +1,14 @@
 import { BrandMark } from '../components/BrandMark'
+import { formatCount, type UsageStats } from '../lib/usageStats'
 import { HOME_TOOLS, type ToolId } from './tools'
 import { ToolTile } from './ToolTile'
 
 interface Props {
   onOpenTool: (id: ToolId) => void
+  stats: UsageStats
 }
 
-export function HomeIndex({ onOpenTool }: Props) {
+export function HomeIndex({ onOpenTool, stats }: Props) {
   return (
     <div className="app step-home">
       <header className="site-header home-header no-print">
@@ -23,15 +25,22 @@ export function HomeIndex({ onOpenTool }: Props) {
           {[...HOME_TOOLS]
             .sort((a, b) => Number(b.enabled) - Number(a.enabled))
             .map((tool) => (
-            <div key={tool.id} role="listitem">
-              <ToolTile
-                tool={tool}
-                onOpen={tool.toolId ? () => onOpenTool(tool.toolId!) : undefined}
-              />
-            </div>
-          ))}
+              <div key={tool.id} role="listitem">
+                <ToolTile
+                  tool={tool}
+                  onOpen={tool.toolId ? () => onOpenTool(tool.toolId!) : undefined}
+                />
+              </div>
+            ))}
         </div>
       </main>
+      <footer className="home-stats no-print" aria-label="使用統計">
+        <span>瀏覽 {formatCount(stats.visits)} 人次</span>
+        <span className="home-stats-sep" aria-hidden>
+          ·
+        </span>
+        <span>功能使用 {formatCount(stats.uses)} 次</span>
+      </footer>
     </div>
   )
 }

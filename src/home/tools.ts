@@ -1,4 +1,4 @@
-export type ToolId = 'plates' | 'badges' | 'seats'
+export type ToolId = 'plates' | 'badges' | 'seats' | 'attendance' | 'snap-sheet'
 
 export interface ToolTileData {
   id: string
@@ -8,7 +8,7 @@ export interface ToolTileData {
   toolId?: ToolId
 }
 
-/** 九宮格：桌牌、排座位可進入 */
+/** 九宮格：已開放的工具排在左上 */
 export const HOME_TOOLS: ToolTileData[] = [
   {
     id: 'plates',
@@ -31,9 +31,21 @@ export const HOME_TOOLS: ToolTileData[] = [
     enabled: false,
   },
   { id: 'sweep', title: '排掃地大師', hint: '即將推出', enabled: false },
-  { id: 'snap-sheet', title: '拍拍成表', hint: '即將推出', enabled: false },
+  {
+    id: 'snap-sheet',
+    title: '拍拍成表',
+    hint: '拍照辨識成表，可改錯並匯出 Excel',
+    enabled: true,
+    toolId: 'snap-sheet',
+  },
   { id: 'cyber-book', title: '賽博聯絡簿', hint: '即將推出', enabled: false },
-  { id: 'attendance', title: '出缺席快拉', hint: '即將推出', enabled: false },
+  {
+    id: 'attendance',
+    title: '出缺席快拉',
+    hint: '座號、假由、節次卡片快速紀錄',
+    enabled: true,
+    toolId: 'attendance',
+  },
   { id: 'soon-8', title: '即將推出', hint: '更多工具籌備中', enabled: false },
   { id: 'soon-9', title: '即將推出', hint: '更多工具籌備中', enabled: false },
 ]
