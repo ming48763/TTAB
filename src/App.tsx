@@ -6,6 +6,7 @@ import { AttendanceTool } from './tools/AttendanceTool'
 import { PlateNameTool } from './tools/PlateNameTool'
 import { SeatingTool } from './tools/SeatingTool'
 import { SnapSheetTool } from './tools/SnapSheetTool'
+import { SweepTool } from './tools/SweepTool'
 
 export default function App() {
   const [tool, setTool] = useState<ToolId | null>(null)
@@ -42,6 +43,10 @@ export default function App() {
 
   if (tool === 'snap-sheet') {
     return <SnapSheetTool onHome={() => setTool(null)} />
+  }
+
+  if (tool === 'sweep') {
+    return <SweepTool onHome={() => setTool(null)} />
   }
 
   return <HomeIndex onOpenTool={openTool} stats={stats} />

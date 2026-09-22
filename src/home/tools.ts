@@ -1,4 +1,4 @@
-export type ToolId = 'plates' | 'badges' | 'seats' | 'attendance' | 'snap-sheet'
+export type ToolId = 'plates' | 'badges' | 'seats' | 'attendance' | 'snap-sheet' | 'sweep'
 
 export interface ToolTileData {
   id: string
@@ -30,7 +30,13 @@ export const HOME_TOOLS: ToolTileData[] = [
     hint: '功能未完善',
     enabled: false,
   },
-  { id: 'sweep', title: '排掃地大師', hint: '即將推出', enabled: false },
+  {
+    id: 'sweep',
+    title: '排掃地大師',
+    hint: '匯入名冊，拖曳分配內掃與外掃',
+    enabled: true,
+    toolId: 'sweep',
+  },
   {
     id: 'snap-sheet',
     title: '拍拍成表',
