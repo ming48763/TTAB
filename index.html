@@ -13,6 +13,34 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      ;(function () {
+        var params = new URLSearchParams(location.search)
+        if (params.get('ui') === '1') return
+        params.set('ui', '1')
+        var scale = 1.5
+        var frame = document.createElement('iframe')
+        frame.title = 'TTAB'
+        frame.src = location.pathname + '?' + params.toString() + location.hash
+        frame.style.cssText = [
+          'position:fixed',
+          'left:0',
+          'top:0',
+          'border:0',
+          'width:calc(100vw / ' + scale + ')',
+          'height:calc(100dvh / ' + scale + ')',
+          'zoom:' + scale,
+          'background:#f3efe6',
+        ].join(';')
+        document.documentElement.style.height = '100%'
+        document.documentElement.style.overflow = 'hidden'
+        document.body.style.margin = '0'
+        document.body.style.height = '100%'
+        document.body.style.overflow = 'hidden'
+        document.body.style.background = '#f3efe6'
+        document.body.replaceChildren(frame)
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

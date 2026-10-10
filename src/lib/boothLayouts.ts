@@ -335,7 +335,7 @@ export function applyBoothLayout(
   cardWidthMm = 210,
   sample: { values: Record<string, string> } | null = null,
   faceHeightMm = 99,
-  keepTextSize = false,
+  sizeScale = 1,
 ): LayoutItem[] {
   if (!source.length) return source
   const byId = new Map(source.map((it) => [it.id, it]))
@@ -347,8 +347,10 @@ export function applyBoothLayout(
   const slots = boothSlots(presetId, boothSlotCount(presetId))
   const placed = ordered.map((it, i) => {
     const slot = slots[i] ?? slots[slots.length - 1]
-    const fontSizeMm =
-      it.kind === 'image' ? Math.min(slot.fontSizeMm, 18) : keepTextSize ? it.fontSizeMm : slot.fontSizeMm
+    const fontSizeMm = scaledSlotFont(
+      it.kind === 'image' ? Math.min(slot.fontSizeMm, 18) : slot.fontSizeMm,
+      sizeScale,
+    )
     return {
       ...it,
       x: slot.x,
@@ -362,12 +364,27 @@ export function applyBoothLayout(
   if (boothLayoutHasCornerExtra(presetId) && placed.length >= 2) {
     const extra = placed[placed.length - 1]
     const pair = placed.slice(0, -1)
-    const packed = packRows(pair, 'center', cardWidthMm, sample)
+    const packed = packRows(pair, 'center', cardWidthMm, sample, layoutRowGap(presetId, pair, cardWidthMm))
     const centered = alignBoothGroup(packed, 'center', cardWidthMm, sample, faceHeightMm)
     return [...centered, extra]
   }
-  const packed = packRows(placed, globalAlign, cardWidthMm, sample)
+  const packed = packRows(placed, globalAlign, cardWidthMm, sample, layoutRowGap(presetId, placed, cardWidthMm))
   return alignBoothGroup(packed, globalAlign, cardWidthMm, sample, faceHeightMm)
+}
+
+function scaledSlotFont(slotMm: number, sizeScale: number) {
+  const scale = Number.isFinite(sizeScale) && sizeScale > 0 ? sizeScale : 1
+  return Math.max(1, Math.round(slotMm * scale * 10) / 10)
+}
+
+/** Wide layouts keep the same packing, with a little extra space between neighbors. */
+function layoutRowGap(presetId: string, items: LayoutItem[], cardWidthMm: number) {
+  const bpmf = items.some((it) => it.kind !== 'image' && isBpmf(it.fontFamily))
+  const tight = bpmf ? 4 : 2.2
+  if (!presetId.includes('wide')) return tight
+  const font = Math.max(...items.map((it) => it.fontSizeMm), 1)
+  const extra = (0.42 * font / Math.max(cardWidthMm, 1)) * 100
+  return Math.round((tight + extra) * 10) / 10
 }
 
 function textWidthPct(text: string, fontMm: number, cardWidthMm: number, family?: string) {
@@ -406,6 +423,7 @@ function packRows(
   globalAlign: LayoutItem['align'],
   cardWidthMm: number,
   sample: { values: Record<string, string> } | null,
+  gap?: number,
 ): LayoutItem[] {
   if (items.length < 2) return items
   const next = items.map((it) => ({ ...it }))
@@ -417,7 +435,7 @@ function packRows(
     byRow.set(key, list)
   })
   const bpmf = next.some((it) => it.kind !== 'image' && isBpmf(it.fontFamily))
-  const gap = bpmf ? 4 : 2.2
+  const rowGap = gap ?? (bpmf ? 4 : 2.2)
   const edge = 8
   for (const idxs of byRow.values()) {
     idxs.sort((a, b) => next[a].x - next[b].x)
@@ -432,7 +450,7 @@ function packRows(
       if (align === 'left') next[i] = { ...next[i], x: Math.round(cursor * 10) / 10 }
       else if (align === 'right') next[i] = { ...next[i], x: Math.round((cursor + w) * 10) / 10 }
       else next[i] = { ...next[i], x: Math.round((cursor + w / 2) * 10) / 10 }
-      cursor += w + gap
+      cursor += w + rowGap
     })
     const spans = idxs.map((i) => itemSpanX(next[i], cardWidthMm, sample))
     const minX = Math.min(...spans.map((s) => s.minX))

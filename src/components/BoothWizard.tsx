@@ -94,7 +94,6 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const [printLayout, setPrintLayout] = useState<PrintImposition>('1x1')
   const stageRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
-  const fontSizeLocked = useRef(false)
   const pendingCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
   const [scale, setScale] = useState(0.28)
 
@@ -146,6 +145,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     nextAlign: LayoutItem['align'] = globalAlign,
     nextCorner: (typeof BOOTH_CORNER_CHOICES)[number]['id'] = cornerExtra,
   ) {
+    pendingCenters.current = null
     onChange({
       ...settings,
       items: applyBoothLayout(
@@ -156,7 +156,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         settings.widthMm,
         sample,
         settings.faceHeightMm,
-        fontSizeLocked.current,
+        sizePct / 100,
       ),
       pendingCenterIds: undefined,
     })
@@ -325,6 +325,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const textColor = textItem?.color ?? '#0f241f'
   const [sizePct, setSizePct] = useState(100)
   const sizeBase = useRef<{ id: string; x: number; y: number; fontSizeMm: number }[] | null>(null)
+  const sizeCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
   const aligningRef = useRef(false)
   const previewBeforeBpmf = useRef<{
     items: LayoutItem[]
@@ -349,7 +350,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   useLayoutEffect(() => {
     let cancelled = false
     function nudge() {
-      if (cancelled || aligningRef.current || showPages || fontSizeLocked.current || phase === 'size') return
+      if (cancelled || aligningRef.current || showPages || phase === 'size') return
       if (boothLayoutPinsCorners(resolvedLayout())) return
       const root = sheetRef.current
       const face = root?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
@@ -461,29 +462,21 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     const base = sizeBase.current
     if (!base?.length) return
     const scale = pct / 100
-    const cx = base.reduce((sum, item) => sum + item.x, 0) / base.length
-    const cy = base.reduce((sum, item) => sum + item.y, 0) / base.length
     const byId = new Map(base.map((item) => [item.id, item]))
-    function paint(list: LayoutItem[], move: boolean) {
+    function paint(list: LayoutItem[]) {
       return list.map((it) => {
         const saved = byId.get(it.id)
         if (!saved) return it
         const fontSizeMm = Math.max(1, Math.round(saved.fontSizeMm * scale * 10) / 10)
-        if (!move) return { ...it, fontSizeMm }
-        return {
-          ...it,
-          fontSizeMm,
-          x: Math.round((cx + (saved.x - cx) * scale) * 10) / 10,
-          y: Math.round((cy + (saved.y - cy) * scale) * 10) / 10,
-        }
+        return { ...it, fontSizeMm, x: saved.x, y: saved.y }
       })
     }
-    fontSizeLocked.current = pct !== 100
-    sourceItems.current = paint(sourceItems.current, false)
+    sourceItems.current = paint(sourceItems.current)
+    if (sizeCenters.current) pendingCenters.current = sizeCenters.current
     setSizePct(pct)
     onChange({
       ...settings,
-      items: paint(settings.items, true),
+      items: paint(settings.items),
       pendingCenterIds: undefined,
     })
   }
@@ -505,13 +498,15 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       return
     }
     if (phase === 'frame') {
+      const scale = Math.max(sizePct, 1) / 100
       sizeBase.current = settings.items.map((it) => ({
         id: it.id,
         x: it.x,
         y: it.y,
-        fontSizeMm: it.fontSizeMm,
+        fontSizeMm: Math.round((it.fontSizeMm / scale) * 10) / 10,
       }))
-      setSizePct(100)
+      const face = sheetRef.current?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
+      sizeCenters.current = face ? measureTextCenters(face, settings.items) : null
       setPhase('size')
     }
   }
@@ -520,7 +515,10 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     if (phase === 'type') setPhase('paper')
     else if (phase === 'layout') setPhase('type')
     else if (phase === 'frame') setPhase('layout')
-    else if (phase === 'size') setPhase('frame')
+    else if (phase === 'size') {
+      pendingCenters.current = null
+      setPhase('frame')
+    }
   }
 
   return (
