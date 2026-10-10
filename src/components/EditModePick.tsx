@@ -7,7 +7,6 @@ interface Props {
 export function EditModePick({ onPickBooth, onPickEditor, onBack }: Props) {
   return (
     <div className="edit-mode-pick">
-      <p className="edit-mode-pick-lead">選擇接下來的製作方式</p>
       <div className="edit-mode-grid">
         <button type="button" className="tool-tile is-ready" onClick={onPickBooth}>
           <strong>拍貼機模式</strong>
@@ -20,7 +19,7 @@ export function EditModePick({ onPickBooth, onPickEditor, onBack }: Props) {
           <span>自定義性高，適合喜歡自己動手布局的你。</span>
         </button>
       </div>
-      <div className="confirm-footer">
+      <div className="confirm-footer is-start">
         <button type="button" className="btn" onClick={onBack}>
           返回欄位設定
         </button>

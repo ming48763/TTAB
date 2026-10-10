@@ -1,0 +1,26 @@
+---
+description: Leave clearance above cards that lift on hover so the lift and shadow do not overlap the bar or panel above
+globs: src/**/*.{css,tsx}
+alwaysApply: false
+---
+
+# Card hover clearance
+
+When creating or adjusting a page whose cards use an upward hover transform, leave enough gap above the cards that the lift and shadow do not overlap the bar or panel above.
+
+Check this on card grids that sit under a header or a preview, especially in portrait (`@media (orientation: portrait)`).
+
+- Keep the resting cards far enough below the bar or panel that `translateY(-2px)` and the card shadow still clear that edge. Aim for at least about 10px between the lifted card top and the element above.
+- If a parent clips with `overflow: hidden`, put the gap inside that parent (padding) so the lift is not cut off.
+- Keep next and back actions inside the viewport. Do not add a document scrollbar to make room; let the cards shrink to fit when the height is short.
+
+```css
+.tool-tile.is-ready:hover {
+  transform: translateY(-2px);
+}
+
+.card-panel {
+  padding-top: 16px;
+  overflow: hidden;
+}
+```

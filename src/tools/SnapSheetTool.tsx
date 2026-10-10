@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
+import { StepRail } from '../components/StepRail'
 import { parseExcelFile } from '../lib/excel'
 import {
   applyStats,
@@ -206,10 +207,12 @@ export function SnapSheetTool({ onHome }: Props) {
               <h1>拍拍成表</h1>
             </div>
           </div>
-          <ol className="step-rail" aria-label="進度">
-            <li className="is-current">上傳</li>
-            <li>編輯</li>
-          </ol>
+          <StepRail
+            steps={[
+              { label: '上傳', state: 'is-current' },
+              { label: '編輯' },
+            ]}
+          />
         </header>
 
         <main className="site-main">
@@ -275,13 +278,30 @@ export function SnapSheetTool({ onHome }: Props) {
                 </div>
 
                 <div className="snap-upload-block">
-                  <h3>名單（可選）</h3>
-                  <p className="snap-hint">上傳名冊後，編輯頁會提示可能認錯的姓名，點一下即可改對。</p>
-                  <div className="snap-fold-actions">
-                    <button type="button" className="btn" onClick={() => rosterRef.current?.click()}>
-                      {roster.length > 0 ? '更換名單' : '上傳名單 Excel'}
-                    </button>
-                    {roster.length > 0 ? (
+                  <div className="panel-head is-center">
+                    <h2>匯入名冊</h2>
+                    <p>上傳 Excel（.xlsx / .xls / .csv）</p>
+                  </div>
+                  <div
+                    className="dropzone snap-dropzone"
+                    onClick={() => rosterRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      const file = e.dataTransfer.files?.[0]
+                      if (file) void onRosterFile(file)
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') rosterRef.current?.click()
+                    }}
+                  >
+                    <span className="dropzone-title">拖曳檔案到這裡，或點擊選擇</span>
+                  </div>
+                  {roster.length > 0 ? (
+                    <div className="snap-fold-actions">
+                      <p className="snap-hint">已載入：{rosterName || '名冊'}（{roster.length} 人）</p>
                       <button
                         type="button"
                         className="btn ghost"
@@ -292,10 +312,7 @@ export function SnapSheetTool({ onHome }: Props) {
                       >
                         清除名單
                       </button>
-                    ) : null}
-                  </div>
-                  {roster.length > 0 ? (
-                    <p className="snap-hint">已載入：{rosterName || '名冊'}（{roster.length} 人）</p>
+                    </div>
                   ) : null}
                   <input
                     ref={rosterRef}
@@ -334,10 +351,12 @@ export function SnapSheetTool({ onHome }: Props) {
             <h1>拍拍成表</h1>
           </div>
         </div>
-        <ol className="step-rail" aria-label="進度">
-          <li className="is-done">上傳</li>
-          <li className="is-current">編輯</li>
-        </ol>
+        <StepRail
+          steps={[
+            { label: '上傳', state: 'is-done' },
+            { label: '編輯', state: 'is-current' },
+          ]}
+        />
       </header>
 
       <main className="snap-main">

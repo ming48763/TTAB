@@ -87,9 +87,39 @@ function termWeekOf(day: Date) {
   return Math.min(WEEK_COUNT, Math.max(1, diff + 1))
 }
 
-function daysOfWeek(week: number) {
+function weekRange(week: number) {
   const start = addDays(mondayOf(TERM_START), (week - 1) * 7)
-  return [0, 1, 2, 3, 4].map((i) => addDays(start, i)).filter(isSchoolDay)
+  return { start, end: addDays(start, 7) }
+}
+
+function daysOfWeek(week: number, extraIsos: string[] = []) {
+  const { start, end } = weekRange(week)
+  const days = [0, 1, 2, 3, 4].map((i) => addDays(start, i)).filter(isSchoolDay)
+  const have = new Set(days.map(iso))
+  for (const value of extraIsos) {
+    if (!value) continue
+    const day = parseIso(value)
+    if (Number.isNaN(day.getTime())) continue
+    const key = iso(day)
+    if (have.has(key) || day < start || day >= end) continue
+    days.push(day)
+    have.add(key)
+  }
+  days.sort((a, b) => a.getTime() - b.getTime())
+  return days
+}
+
+function datedIsos(
+  packs: PackedCard[],
+  stamp?: { dateMode: AttDateMode; date: string },
+) {
+  const extra: string[] = []
+  for (const pack of packs) {
+    if (pack.dateMode === 'standing' || !pack.date) continue
+    extra.push(pack.date)
+  }
+  if (stamp && stamp.dateMode !== 'standing' && stamp.date) extra.push(stamp.date)
+  return extra
 }
 
 function packsInWeek(packs: PackedCard[], days: Date[]) {
@@ -328,7 +358,7 @@ export async function exportAttendanceExcel(
   const dated = stamp && options?.restamp !== false ? applyExportStamp(packs, stamp) : packs
   const weekDate = stamp?.date ?? dated.find((p) => p.dateMode !== 'standing' && p.date)?.date ?? todayIso()
   const week = termWeekOf(parseIso(weekDate))
-  const days = daysOfWeek(week)
+  const days = daysOfWeek(week, datedIsos(dated, stamp))
   const weekPacks = groupPacks(packsInWeek(dated, days), level)
   const presentDays = new Set(options?.presentDays ?? [])
   if (stamp && stamp.dateMode !== 'standing') presentDays.add(stamp.date)

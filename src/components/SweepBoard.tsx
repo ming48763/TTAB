@@ -81,14 +81,6 @@ function duplicateFolderIds(folders: SweepFolder[]) {
   return dups
 }
 
-const DEFAULT_RANDOM_TITLES = [
-  taskTitle('掃地', '講台'),
-  taskTitle('掃地', '第幾排'),
-  taskTitle('拖地', '走廊'),
-  taskTitle('倒垃圾', '一般'),
-  taskTitle('窗戶', '窗台'),
-]
-
 interface Props {
   rows: StudentRow[]
   mappings: ColumnMapping[]
@@ -155,6 +147,11 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
   const [poolTab, setPoolTab] = useState<'students' | 'tasks'>('students')
   const [customTitle, setCustomTitle] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [needModule, setNeedModule] = useState(false)
+  const [randomOpen, setRandomOpen] = useState(false)
+  const [innerCount, setInnerCount] = useState('0')
+  const [outerCount, setOuterCount] = useState('0')
+  const [randomError, setRandomError] = useState('')
   const [shownFields, setShownFields] = useState<string[]>(() => {
     const names = mappings.filter((m) => m.role === 'name').map((m) => m.header)
     if (names.length) return names
@@ -246,44 +243,51 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     onAssign({ ...next, [home]: [...next[home], folder] })
   }
 
-  function fillRandom() {
-    if (poolStudents.length === 0) return
-    let next: SweepAssignments = {
-      pool: [...assignments.pool],
-      inner: [...assignments.inner],
-      outer: [...assignments.outer],
-    }
-    const ensure = (tab: SweepDutyTab) => {
-      if (next[tab].length > 0) return
-      next = {
-        ...next,
-        [tab]: DEFAULT_RANDOM_TITLES.slice(0, 4).map((title) => ({
-          id: uid('sweep'),
-          title,
-          members: [] as string[],
-        })),
-      }
-    }
-    ensure('inner')
-    ensure('outer')
+  function openRandom() {
+    const total = poolStudents.length
+    const innerN = Math.ceil(total / 2)
+    setInnerCount(String(innerN))
+    setOuterCount(String(total - innerN))
+    setRandomError('')
+    setRandomOpen(true)
+  }
 
+  function applyRandom() {
+    const innerN = Number(innerCount)
+    const outerN = Number(outerCount)
+    if (!Number.isInteger(innerN) || !Number.isInteger(outerN) || innerN < 0 || outerN < 0) {
+      setRandomError('請填入 0 以上的整數')
+      return
+    }
+    if (innerN + outerN === 0) {
+      setRandomError('請至少分配 1 人')
+      return
+    }
+    if (innerN + outerN > poolStudents.length) {
+      setRandomError(`未分配只有 ${poolStudents.length} 人`)
+      return
+    }
     const waiting = [...poolStudents]
-    for (let i = waiting.length - 1; i > 0; i--) {
+    for (let i = waiting.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[waiting[i], waiting[j]] = [waiting[j], waiting[i]]
     }
-    const mid = Math.ceil(waiting.length / 2)
-    const place = (tab: SweepDutyTab, people: StudentRow[]) => {
-      const folders = next[tab].map((f) => ({ ...f, members: [...f.members] }))
-      if (folders.length === 0) return
-      people.forEach((row, i) => {
-        folders[i % folders.length].members.push(studentKey(row))
-      })
-      next = { ...next, [tab]: folders }
-    }
-    place('inner', waiting.slice(0, mid))
-    place('outer', waiting.slice(mid))
-    onAssign(next)
+    const folderFor = (people: StudentRow[]): SweepFolder[] =>
+      people.length === 0
+        ? []
+        : [
+            {
+              id: uid('sweep'),
+              title: '【未分組】',
+              members: people.map((row) => studentKey(row)),
+            },
+          ]
+    onAssign({
+      ...assignments,
+      inner: [...assignments.inner, ...folderFor(waiting.slice(0, innerN))],
+      outer: [...assignments.outer, ...folderFor(waiting.slice(innerN, innerN + outerN))],
+    })
+    setRandomOpen(false)
   }
 
   function startStudentDrag(key: string, e: DragEvent) {
@@ -324,6 +328,11 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
   function onDutyDrop(e: DragEvent) {
     e.preventDefault()
     const payload = readPayload(e)
+    if (payload?.kind === 'student' && dutyTab === 'inner' && assignments.inner.length === 0) {
+      setNeedModule(true)
+      endDrag()
+      return
+    }
     if (payload?.kind === 'task') addFolderToDuty(payload.value)
     if (payload?.kind === 'folder') moveFolderTo(dutyTab, payload.value)
     endDrag()
@@ -341,6 +350,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     const row = byKey.get(key)
     if (!row) return null
     const lines = studentCardLines(row, mappings, shownFields)
+    const digitsOnly = lines.length > 0 && lines.every((line) => /^\d+$/.test(line.text.replace(/\s/g, '')))
     return (
       <div
         key={key}
@@ -350,15 +360,18 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
         onDragEnd={endDrag}
       >
         <span className="seat-name-stack">
-          {lines.map((line, i) => (
-            <span
-              key={`${key}-${i}`}
-              className={line.isName ? 'seat-name' : 'seat-card-meta'}
-              style={line.isName ? { ['--name-scale' as string]: String(line.scale) } : undefined}
-            >
-              {line.text}
-            </span>
-          ))}
+          {lines.map((line, i) => {
+            const asName = line.isName || digitsOnly
+            return (
+              <span
+                key={`${key}-${i}`}
+                className={asName ? 'seat-name' : 'seat-card-meta'}
+                style={asName ? { ['--name-scale' as string]: String(line.isName ? line.scale : 1) } : undefined}
+              >
+                {line.text}
+              </span>
+            )
+          })}
         </span>
       </div>
     )
@@ -399,12 +412,6 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             aria-label="資料夾標題"
           />
           {isDup ? <span className="sweep-folder-dup">重複</span> : null}
-          <span className="sweep-folder-count">{folder.members.length}</span>
-          {home === 'pool' ? (
-            <span className="sweep-folder-home">未分區</span>
-          ) : (
-            <span className="sweep-folder-home">{home === 'inner' ? '內掃' : '外掃'}</span>
-          )}
           <button
             type="button"
             className="sweep-folder-del"
@@ -435,17 +442,17 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             <h1>排掃地大師</h1>
           </div>
         </div>
-        <ol className="step-rail" aria-label="進度">
-          <li className="is-done">匯入</li>
-          <li className="is-done">欄位</li>
-          <li className="is-current">排掃地</li>
-        </ol>
+        <div className="sweep-head-actions">
+          <button type="button" className="btn" onClick={onBack}>
+            返回欄位
+          </button>
+          <button type="button" className="btn">
+            匯出
+          </button>
+        </div>
       </header>
 
       <div className="sweep-toolbar no-print">
-        <p className="muted">
-          右側切換「工作模塊」頁籤，拖到左側編輯區建立資料夾；再切回學生頁籤，把人拖進資料夾。標題可改。
-        </p>
         <div className="sweep-toolbar-actions">
           <div className="seat-info-hover">
             <button type="button" className="seat-info-trigger">
@@ -474,7 +481,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
               )}
             </div>
           </div>
-          <button type="button" className="seat-random-btn" onClick={fillRandom}>
+          <button type="button" className="seat-random-btn" onClick={openRandom}>
             一鍵隨機
           </button>
           <button
@@ -486,9 +493,6 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             }}
           >
             清空
-          </button>
-          <button type="button" className="btn" onClick={onBack}>
-            返回欄位
           </button>
         </div>
       </div>
@@ -584,9 +588,6 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
 
           {poolTab === 'tasks' ? (
             <div className="sweep-task-panel" role="tabpanel" aria-label="工作模塊">
-              <p className="sweep-task-panel-hint">
-                目前對應左側「{dutyTab === 'inner' ? '內掃區' : '外掃區'}」· 拖分類細項到左側建立資料夾
-              </p>
               <div className="sweep-task-groups">
                 {TASK_GROUPS.map((group) => (
                   <section key={group.id} className="sweep-task-group" aria-label={group.label}>
@@ -594,17 +595,16 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                     <div className="sweep-task-panel-list">
                       {group.items.map((item) => {
                         const title = taskTitle(group.label, item)
-                        const isDup = hasSameTask(dutyFolders, title)
                         return (
                           <div
                             key={title}
-                            className={`sweep-task-chip ${isDup ? 'is-dup' : ''}`}
+                            className="sweep-task-chip"
                             draggable
                             onDragStart={(e) => startTaskDrag(title, e)}
                             onDragEnd={endDrag}
-                            title={isDup ? `${title}（已在編輯區）` : title}
+                            title={title}
                           >
-                            {isDup ? `${item}(重複)` : item}
+                            {item}
                           </div>
                         )
                       })}
@@ -616,16 +616,15 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                   <div className="sweep-task-panel-list">
                     {(() => {
                       const title = customTitle.trim() || '自定義'
-                      const isDup = hasSameTask(dutyFolders, title)
                       return (
                         <div
-                          className={`sweep-task-chip is-custom ${isDup ? 'is-dup' : ''}`}
+                          className="sweep-task-chip is-custom"
                           draggable
                           onDragStart={(e) => startTaskDrag(title, e)}
                           onDragEnd={endDrag}
-                          title={isDup ? `${title}（已在編輯區）` : '拖到左側建立自訂資料夾'}
+                          title="拖到左側建立自訂資料夾"
                         >
-                          {isDup ? `${title}(重複)` : '自定義'}
+                          自定義
                         </div>
                       )
                     })()}
@@ -675,6 +674,59 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           )}
         </aside>
       </div>
+
+      {randomOpen ? (
+        <div className="seat-notice" role="dialog" aria-modal="true" aria-labelledby="sweep-random-title">
+          <div className="seat-notice-card">
+            <h3 id="sweep-random-title">一鍵隨機</h3>
+            <p className="sweep-random-note">未分配 {poolStudents.length} 人。填入內掃、外掃的人數後，會隨機放進掃地區。</p>
+            <div className="sweep-random-fields">
+              <label>
+                內掃人數
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={innerCount}
+                  onChange={(e) => setInnerCount(e.target.value)}
+                />
+              </label>
+              <label>
+                外掃人數
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={outerCount}
+                  onChange={(e) => setOuterCount(e.target.value)}
+                />
+              </label>
+            </div>
+            {randomError ? <p className="sweep-random-error">{randomError}</p> : null}
+            <div className="seat-notice-actions">
+              <button type="button" className="btn" onClick={() => setRandomOpen(false)}>
+                取消
+              </button>
+              <button type="button" className="btn primary" onClick={applyRandom}>
+                開始分配
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {needModule ? (
+        <div className="seat-notice" role="alertdialog" aria-modal="true" aria-labelledby="sweep-module-title">
+          <div className="seat-notice-card">
+            <h3 id="sweep-module-title">請先新增工作模塊</h3>
+            <div className="seat-notice-actions">
+              <button type="button" className="btn primary" onClick={() => setNeedModule(false)}>
+                知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {confirmClear ? (
         <div className="seat-notice" role="alertdialog" aria-modal="true" aria-labelledby="sweep-clear-title">

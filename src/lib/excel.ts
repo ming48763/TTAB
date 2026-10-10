@@ -16,8 +16,61 @@ const ROLE_HINTS: { role: FieldRole; patterns: RegExp[] }[] = [
   },
 ]
 
+const HEADER_HINT =
+  /班級|班別|座號|座号|座次|學號|学号|姓名|名字|家長|家长|性別|性别|備註|备注|電話|电话|地址|^name$|^no\.?$|^id$|^class$/i
+
+function cellText(cell: string | number | boolean | null | undefined) {
+  return String(cell ?? '').trim()
+}
+
+function looksLikeHeaderCell(text: string) {
+  return HEADER_HINT.test(text.trim())
+}
+
+/** School rosters often put a merged title above the real headers. */
+function findHeaderIndex(matrix: (string | number | boolean | null)[][]) {
+  const limit = Math.min(matrix.length - 1, 8)
+  let best = 0
+  let bestScore = -1
+  for (let i = 0; i < limit; i++) {
+    const filled = (matrix[i] ?? []).map(cellText).filter(Boolean)
+    if (filled.length < 2) continue
+    const hits = filled.filter(looksLikeHeaderCell).length
+    const numeric = filled.filter((text) => /^\d+$/.test(text)).length
+    const longTitle = filled.some((text) => text.length > 16)
+    const score = hits * 5 + filled.length - numeric * 3 - (longTitle ? 4 : 0)
+    if (score > bestScore) {
+      bestScore = score
+      best = i
+    }
+  }
+  return best
+}
+
+function lastUsedColumn(
+  matrix: (string | number | boolean | null)[][],
+  headerIndex: number,
+  headerCells: string[],
+) {
+  let last = 0
+  headerCells.forEach((text, index) => {
+    if (text) last = index + 1
+  })
+  for (let r = headerIndex + 1; r < matrix.length; r++) {
+    const line = matrix[r] ?? []
+    for (let c = line.length - 1; c >= last; c--) {
+      if (cellText(line[c])) {
+        last = c + 1
+        break
+      }
+    }
+  }
+  return Math.max(last, 1)
+}
+
 export function guessRole(header: string): FieldRole {
   const h = header.trim()
+  if (/家長|家长|監護|监护|父親|母親/.test(h)) return 'custom'
   for (const { role, patterns } of ROLE_HINTS) {
     if (patterns.some((p) => p.test(h))) return role
   }
@@ -47,10 +100,10 @@ export function parseExcelFile(file: ArrayBuffer): ParsedWorkbook {
     throw new Error('請至少包含一列表頭與一列資料')
   }
 
-  const rawHeaders = (matrix[0] ?? []).map((cell, i) => {
-    const text = String(cell ?? '').trim()
-    return text || `欄位${i + 1}`
-  })
+  const headerIndex = findHeaderIndex(matrix)
+  const headerCells = (matrix[headerIndex] ?? []).map(cellText)
+  const columnCount = lastUsedColumn(matrix, headerIndex, headerCells)
+  const rawHeaders = headerCells.slice(0, columnCount).map((text, i) => text || `欄位${i + 1}`)
 
   // Deduplicate headers
   const seen = new Map<string, number>()
@@ -62,7 +115,7 @@ export function parseExcelFile(file: ArrayBuffer): ParsedWorkbook {
 
   const rows: StudentRow[] = []
   let lastNonEmpty = 0
-  for (let i = 1; i < matrix.length; i++) {
+  for (let i = headerIndex + 1; i < matrix.length; i++) {
     const line = matrix[i] ?? []
     const values: Record<string, string> = {}
     let empty = true

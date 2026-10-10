@@ -4,6 +4,7 @@ import { BrandMark } from '../components/BrandMark'
 import { ConfirmFields } from '../components/ConfirmFields'
 import { EditModePick } from '../components/EditModePick'
 import { ExcelUpload } from '../components/ExcelUpload'
+import { StepRail } from '../components/StepRail'
 import { LayoutEditor } from '../components/LayoutEditor'
 import {
   applySequenceToRows,
@@ -113,7 +114,7 @@ export function PlateNameTool({ family, onHome }: Props) {
     step === 'choose' || step === 'booth' ? 'is-current' : step === 'edit' ? 'is-done' : ''
 
   return (
-    <div className={`app step-${step}`}>
+    <div className={`app step-${step}${family === 'desk' ? ' is-desk' : ''}`}>
       {showIntroChrome && (
         <header className="site-header no-print">
           <div className="brand">
@@ -122,13 +123,13 @@ export function PlateNameTool({ family, onHome }: Props) {
               <h1>{title}</h1>
             </div>
           </div>
-          <ol className="step-rail" aria-label="進度">
-            <li className={step === 'upload' ? 'is-current' : 'is-done'}>匯入</li>
-            <li className={step === 'map' ? 'is-current' : 'is-done'}>欄位</li>
-            <li className={modeRailClass}>
-              模式
-            </li>
-          </ol>
+          <StepRail
+            steps={[
+              { label: '匯入', state: step === 'upload' ? 'is-current' : 'is-done' },
+              { label: '欄位', state: step === 'map' ? 'is-current' : step === 'upload' ? '' : 'is-done' },
+              { label: '模式', state: modeRailClass },
+            ]}
+          />
         </header>
       )}
 
@@ -154,6 +155,7 @@ export function PlateNameTool({ family, onHome }: Props) {
             onChangeExtras={setExtras}
             onBack={resetToUpload}
             onConfirm={handleConfirm}
+            showExtrasNote={family !== 'desk'}
           />
         )}
 
@@ -197,13 +199,9 @@ export function PlateNameTool({ family, onHome }: Props) {
         )}
       </main>
 
-      {showIntroChrome && (
+      {showIntroChrome && family !== 'desk' && (
         <footer className="site-footer no-print">
-          <p>
-            {family === 'desk'
-              ? '列印建議：選「實際大小」、關閉頁首頁尾。桌牌請用較厚紙張並沿中線對折。'
-              : '列印建議：選「實際大小」、關閉頁首頁尾。名牌可用較厚貼紙或卡片紙。'}
-          </p>
+          <p>列印建議：選「實際大小」、關閉頁首頁尾。名牌可用較厚貼紙或卡片紙。</p>
         </footer>
       )}
     </div>

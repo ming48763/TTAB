@@ -335,6 +335,7 @@ export function applyBoothLayout(
   cardWidthMm = 210,
   sample: { values: Record<string, string> } | null = null,
   faceHeightMm = 99,
+  keepTextSize = false,
 ): LayoutItem[] {
   if (!source.length) return source
   const byId = new Map(source.map((it) => [it.id, it]))
@@ -346,7 +347,8 @@ export function applyBoothLayout(
   const slots = boothSlots(presetId, boothSlotCount(presetId))
   const placed = ordered.map((it, i) => {
     const slot = slots[i] ?? slots[slots.length - 1]
-    const fontSizeMm = it.kind === 'image' ? Math.min(slot.fontSizeMm, 18) : slot.fontSizeMm
+    const fontSizeMm =
+      it.kind === 'image' ? Math.min(slot.fontSizeMm, 18) : keepTextSize ? it.fontSizeMm : slot.fontSizeMm
     return {
       ...it,
       x: slot.x,

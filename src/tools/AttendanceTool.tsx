@@ -180,49 +180,43 @@ export function AttendanceTool({ onHome }: Props) {
               國小以上
             </button>
           </div>
-          <div className="toolbar-drop att-date-drop">
-            <button type="button" className="toolbar-drop-btn">
-              日期
-              {dateMode === 'fixed' ? ` ${pickedDate.slice(5)}` : dateMode === 'today' ? ' · 當日' : ' · 常態'}
-            </button>
-            <div className="toolbar-drop-menu att-date-menu">
-              <div className="att-date-card">
-                <button
-                  type="button"
-                  className={dateMode === 'fixed' ? 'is-on' : ''}
-                  onClick={() => setDateMode('fixed')}
-                >
-                  指定日期
-                </button>
-                {dateMode === 'fixed' ? (
-                  <label className="att-date-pick">
-                    <input
-                      type="date"
-                      value={pickedDate}
-                      onChange={(e) => setPickedDate(e.target.value || todayIso())}
-                    />
-                  </label>
-                ) : null}
-                <button
-                  type="button"
-                  className={dateMode === 'today' ? 'is-on' : ''}
-                  onClick={() => setDateMode('today')}
-                >
-                  當日
-                </button>
-                <button
-                  type="button"
-                  className={dateMode === 'standing' ? 'is-on' : ''}
-                  onClick={() => setDateMode('standing')}
-                >
-                  常態
-                </button>
+          <div className="att-head-actions">
+            <div className="toolbar-drop att-date-drop">
+              <button type="button" className="toolbar-drop-btn">
+                {dateMode === 'fixed' ? '擇日' : '今天'}
+              </button>
+              <div className="toolbar-drop-menu att-date-menu">
+                <div className="att-date-card">
+                  <button
+                    type="button"
+                    className={dateMode === 'today' ? 'is-on' : ''}
+                    onClick={() => setDateMode('today')}
+                  >
+                    今天
+                  </button>
+                  <button
+                    type="button"
+                    className={dateMode === 'fixed' ? 'is-on' : ''}
+                    onClick={() => setDateMode('fixed')}
+                  >
+                    擇日
+                  </button>
+                  {dateMode === 'fixed' ? (
+                    <label className="att-date-pick">
+                      <input
+                        type="date"
+                        value={pickedDate}
+                        onChange={(e) => setPickedDate(e.target.value || todayIso())}
+                      />
+                    </label>
+                  ) : null}
+                </div>
               </div>
             </div>
+            <button type="button" className="toolbar-drop-btn" onClick={() => setExportOpen(true)}>
+              匯出
+            </button>
           </div>
-          <button type="button" className="toolbar-drop-btn" onClick={() => setExportOpen(true)}>
-            匯出
-          </button>
         </div>
       </header>
       {exportOpen ? (
@@ -304,6 +298,23 @@ export function AttendanceTool({ onHome }: Props) {
           onRemove={removeBlock}
           onRemoveChain={(fromRunId) => {
             setChains((cur) => cur.filter((line) => line[0]?.runId !== fromRunId))
+          }}
+          onCommitCards={(cards) => {
+            setChains((cur) => {
+              const blocks = cards.map(asBlock)
+              if (blocks.length === 0) return cur
+              if (cur.length === 0) return [blocks]
+              const last = cur[cur.length - 1]
+              const kind = cards[0]?.kind
+              const occupied =
+                kind === 'seat'
+                  ? last.some((b) => b.kind === 'seat')
+                  : kind === 'period'
+                    ? last.some((b) => b.kind === 'period')
+                    : false
+              if (occupied) return [...cur, blocks]
+              return [...cur.slice(0, -1), [...last, ...blocks]]
+            })
           }}
           onAddSeats={(runId, cards) => {
             setChains((cur) => {

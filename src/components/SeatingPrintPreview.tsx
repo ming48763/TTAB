@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SeatingClassroom } from './SeatingClassroom'
+import { fitPreviewRow } from '../lib/fitPreviewChrome'
 import type { ClassroomDoor, RoomShape, SeatGroupMode, SeatInkStyle, SeatSpot } from '../lib/seating'
 import { SEAT_INK_STYLES } from '../lib/seating'
 
@@ -26,6 +27,75 @@ function dateStamp() {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+const PAINT_PROPS = [
+  'color',
+  'backgroundColor',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'textDecorationColor',
+  'webkitTextStrokeColor',
+] as const
+
+function sampleRgba(ctx: CanvasRenderingContext2D, raw: string) {
+  ctx.clearRect(0, 0, 1, 1)
+  ctx.fillStyle = raw
+  ctx.fillRect(0, 0, 1, 1)
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+  if (a >= 255) return `rgb(${r}, ${g}, ${b})`
+  return `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 1000) / 1000})`
+}
+
+function replaceModernColor(ctx: CanvasRenderingContext2D, value: string) {
+  let out = ''
+  for (let i = 0; i < value.length; i++) {
+    const head = /^(?:color-mix|color|oklch|oklab|lab|lch)\(/.exec(value.slice(i))
+    if (!head) {
+      out += value[i]
+      continue
+    }
+    let depth = 0
+    let j = i
+    for (; j < value.length; j++) {
+      if (value[j] === '(') depth++
+      else if (value[j] === ')') {
+        depth--
+        if (depth === 0) {
+          j++
+          break
+        }
+      }
+    }
+    out += sampleRgba(ctx, value.slice(i, j))
+    i = j - 1
+  }
+  return out
+}
+
+/** html2canvas 1.4 cannot parse color() / color-mix() from computed styles. */
+function bakePaint(root: HTMLElement) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1
+  canvas.height = 1
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return
+  const nodes = [root, ...root.querySelectorAll<HTMLElement>('*')]
+  for (const el of nodes) {
+    const cs = getComputedStyle(el)
+    for (const prop of PAINT_PROPS) {
+      const raw = cs[prop]
+      if (!raw || !raw.includes('color(')) continue
+      el.style[prop] = sampleRgba(ctx, raw)
+    }
+    for (const prop of ['boxShadow', 'textShadow', 'backgroundImage'] as const) {
+      const raw = cs[prop]
+      if (!raw || raw === 'none' || !raw.includes('color(')) continue
+      el.style[prop] = replaceModernColor(ctx, raw)
+    }
+  }
 }
 
 function RoomPage({
@@ -88,6 +158,7 @@ export function SeatingPrintPreview({
   const paper = paperMm(paperDir)
   const pages = teacherView ? [false, true] : [false]
   const stageRef = useRef<HTMLDivElement>(null)
+  const barFitRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const pdfSourceRef = useRef<HTMLDivElement>(null)
 
@@ -107,13 +178,18 @@ export function SeatingPrintPreview({
       const naturalW = sheet.offsetWidth
       const naturalH = sheet.offsetHeight
       if (naturalW <= 0 || naturalH <= 0) return
-      const next = Math.min(
-        (stage.clientWidth - 48) / naturalW,
-        (stage.clientHeight - 48) / naturalH,
-        1,
-      )
-      const clamped = Math.max(0.12, next)
-      const frameW = Math.round(naturalW * clamped)
+      const count = teacherView ? 2 : 1
+      const gap = count > 1 ? 28 : 0
+      const stageStyle = getComputedStyle(stage)
+      const padX =
+        (Number.parseFloat(stageStyle.paddingLeft) || 0) + (Number.parseFloat(stageStyle.paddingRight) || 0)
+      const padY =
+        (Number.parseFloat(stageStyle.paddingTop) || 0) + (Number.parseFloat(stageStyle.paddingBottom) || 0)
+      const availW = Math.max(0, (stage.clientWidth - padX - gap) / count)
+      const availH = Math.max(0, stage.clientHeight - padY)
+      if (availW <= 0 || availH <= 0) return
+      const next = Math.min(availW / naturalW, availH / naturalH, 1)
+      const frameW = Math.round(naturalW * next)
       const used = frameW / naturalW
       const frameH = Math.round(naturalH * used)
       setScale((prev) => (Math.abs(used - prev) > 0.004 ? used : prev))
@@ -128,6 +204,21 @@ export function SeatingPrintPreview({
       ro.disconnect()
     }
   }, [paper.w, paper.h, teacherView, emptyMode, inkStyle])
+
+  useLayoutEffect(() => {
+    function fitChrome() {
+      fitPreviewRow(barFitRef.current, 'spread')
+    }
+    fitChrome()
+    window.addEventListener('resize', fitChrome)
+    const ro = new ResizeObserver(fitChrome)
+    const parent = barFitRef.current?.parentElement
+    if (parent) ro.observe(parent)
+    return () => {
+      window.removeEventListener('resize', fitChrome)
+      ro.disconnect()
+    }
+  }, [paperDir, teacherView, emptyMode, inkStyle, pdfBusy, lockedDir])
 
   const downloadPdf = useCallback(() => {
     if (pdfBusy) return
@@ -157,6 +248,7 @@ export function SeatingPrintPreview({
         })
         for (let i = 0; i < sheets.length; i++) {
           if (cancelled) return
+          bakePaint(sheets[i])
           const canvas = await html2canvas(sheets[i], {
             scale: 2,
             backgroundColor: '#ffffff',
@@ -168,6 +260,8 @@ export function SeatingPrintPreview({
           pdf.addImage(img, 'JPEG', 0, 0, paper.w, paper.h)
         }
         pdf.save(`排座位大師_座位表_${dateStamp()}.pdf`)
+      } catch (err) {
+        console.error(err)
       } finally {
         if (!cancelled) setPdfBusy(false)
       }
@@ -191,16 +285,13 @@ export function SeatingPrintPreview({
   }
 
   return (
-    <div className={`seat-print-preview is-a4-${paperDir}`}>
+    <div
+      className={`seat-print-preview is-a4-${paperDir}`}
+      style={{ ['--print-scale' as string]: String(scale) }}
+    >
       <style>{`@media print { @page { size: A4 ${paperDir}; margin: 0; } }`}</style>
       <header className="seat-print-bar no-print">
-        <div className="seat-print-meta">
-          <strong>列印預覽</strong>
-          <span className="muted">
-            {`A4 ${paperDir === 'portrait' ? '直向' : '橫向'}`}
-            {teacherView ? ' · 兩張（含老師視角）' : ''}
-          </span>
-        </div>
+        <div className="preview-fit-row" ref={barFitRef}>
         <div className="seat-print-paper">
           <span className="toolbar-label">印出尺寸</span>
           {lockedDir ? (
@@ -299,8 +390,9 @@ export function SeatingPrintPreview({
             開始列印
           </button>
         </div>
+        </div>
       </header>
-      <div className="seat-print-stage" ref={stageRef}>
+      <div className={`seat-print-stage${teacherView ? ' is-pair' : ''}`} ref={stageRef}>
         {pages.map((isTeacher) => (
           <div
             key={isTeacher ? 'teacher' : 'student'}

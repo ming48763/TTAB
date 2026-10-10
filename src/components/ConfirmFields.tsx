@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type {
   ColumnMapping,
   ExtraLabelOptions,
@@ -17,6 +18,39 @@ interface Props {
   onConfirm: () => void
   showExtras?: boolean
   confirmLabel?: string
+  showExtrasNote?: boolean
+}
+
+function FitPreviewTag({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const max = 15.68
+    const fits = () => el.scrollWidth <= el.clientWidth + 0.5
+    el.style.fontSize = `${max}px`
+    if (fits()) return
+    let lo = 6
+    let hi = max
+    for (let i = 0; i < 12; i += 1) {
+      const mid = (lo + hi) / 2
+      el.style.fontSize = `${mid}px`
+      if (fits()) lo = mid
+      else hi = mid
+    }
+    el.style.fontSize = `${lo}px`
+  }, [text])
+  return <span ref={ref}>{text || '—'}</span>
+}
+
+function PreviewCells({ values }: { values: string[] }) {
+  return (
+    <div className="preview-cells is-scroll">
+      {values.map((value, index) => (
+        <FitPreviewTag key={index} text={value} />
+      ))}
+    </div>
+  )
 }
 
 const SEQUENCE_OPTIONS: { id: SequenceStyle; label: string; hint: string }[] = [
@@ -37,6 +71,7 @@ export function ConfirmFields({
   onConfirm,
   showExtras = true,
   confirmLabel = '確認，開始編輯',
+  showExtrasNote = true,
 }: Props) {
   function update(index: number, patch: Partial<ColumnMapping>) {
     onChangeMappings(mappings.map((m, i) => (i === index ? { ...m, ...patch } : m)))
@@ -92,8 +127,7 @@ export function ConfirmFields({
     reader.readAsDataURL(file)
   }
 
-  const preview = rows.slice(0, 3)
-  const importCount = rows.reduce((max, row) => Math.max(max, row.rowIndex), 0)
+  const preview = rows
   const activeCount = mappings.filter((m) => m.enabled).length
   const hasStatic =
     extras.useStatic && extras.staticLabels.some((s) => s.text.trim().length > 0)
@@ -101,6 +135,47 @@ export function ConfirmFields({
   const canConfirm = showExtras
     ? activeCount > 0 || extras.useSequence || hasStatic || hasImage
     : activeCount > 0
+  const previewWrapRef = useRef<HTMLDivElement>(null)
+  const previewBarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const root = previewWrapRef.current
+    const bar = previewBarRef.current
+    if (!root || !bar) return
+    const spacer = bar.firstElementChild as HTMLElement | null
+    let lock = false
+    const strips = () => [...root.querySelectorAll<HTMLDivElement>('.preview-cells.is-scroll')]
+    const apply = (left: number) => {
+      if (lock) return
+      lock = true
+      for (const node of strips()) node.scrollLeft = left
+      bar.scrollLeft = left
+      lock = false
+    }
+    const fit = () => {
+      if (!spacer) return
+      const max = Math.max(0, ...strips().map((node) => node.scrollWidth))
+      spacer.style.width = `${max}px`
+      const overflow = max > bar.clientWidth + 1
+      bar.hidden = !overflow
+      if (!overflow) apply(0)
+    }
+    const onBarScroll = () => apply(bar.scrollLeft)
+    const onWheel = (event: WheelEvent) => {
+      if (bar.hidden) return
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+      if (delta === 0) return
+      bar.scrollLeft += delta
+      event.preventDefault()
+    }
+    fit()
+    bar.addEventListener('scroll', onBarScroll)
+    root.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      bar.removeEventListener('scroll', onBarScroll)
+      root.removeEventListener('wheel', onWheel)
+    }
+  }, [rows, mappings])
 
   return (
     <div className="step-page">
@@ -112,10 +187,9 @@ export function ConfirmFields({
         <section className="confirm-section">
           <div className="section-head">
             <h3>匯入欄位</h3>
-            <p className="muted">已讀取{importCount}筆資料</p>
           </div>
-          <div className="table-wrap">
-            <table className="map-table">
+          <div className="table-wrap" ref={previewWrapRef}>
+            <table className="map-table is-preview-scroll">
               <thead>
                 <tr>
                   <th className="col-check">使用</th>
@@ -138,15 +212,22 @@ export function ConfirmFields({
                       <code>{m.header}</code>
                     </td>
                     <td>
-                      <div className="preview-cells">
-                      {preview.map((row) => (
-                        <span key={row.rowIndex}>{row.values[m.header] || '—'}</span>
-                      ))}
-                      </div>
+                      <PreviewCells values={preview.map((row) => row.values[m.header] || '')} />
                     </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td />
+                  <td />
+                  <td>
+                    <div className="preview-sync" ref={previewBarRef}>
+                      <div />
+                    </div>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </section>
@@ -155,7 +236,7 @@ export function ConfirmFields({
         <section className="confirm-section">
           <div className="section-head">
             <h3>額外標籤（選配）</h3>
-            <p className="muted">三類皆可獨立勾選，不是必填。</p>
+            {showExtrasNote ? <p className="muted">三類皆可獨立勾選，不是必填。</p> : null}
           </div>
 
           <div className="extra-grid">

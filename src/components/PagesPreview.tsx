@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { fitPreviewRow } from '../lib/fitPreviewChrome'
 import { chunk, resolvePrintPaper } from '../lib/layout'
 import {
   impositionGrid,
   impositionHint,
+  impositionSplitLabel,
   type PrintImposition,
 } from '../lib/printLayout'
 import type { LayoutSettings, StudentRow } from '../types'
@@ -38,6 +40,8 @@ export function PagesPreview({
   const [pdfBusy, setPdfBusy] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
+  const barFitRef = useRef<HTMLDivElement>(null)
+  const pagerFitRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const pdfSourceRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.32)
@@ -57,9 +61,16 @@ export function PagesPreview({
       const naturalW = sheet.offsetWidth
       const naturalH = sheet.offsetHeight
       if (naturalW <= 0 || naturalH <= 0) return
-      const next = Math.min((stage.clientWidth - 32) / naturalW, (stage.clientHeight - 32) / naturalH, 1)
-      const clamped = Math.max(0.12, next)
-      setScale((prev) => (Math.abs(clamped - prev) > 0.004 ? clamped : prev))
+      const stageStyle = getComputedStyle(stage)
+      const padX =
+        (Number.parseFloat(stageStyle.paddingLeft) || 0) + (Number.parseFloat(stageStyle.paddingRight) || 0)
+      const padY =
+        (Number.parseFloat(stageStyle.paddingTop) || 0) + (Number.parseFloat(stageStyle.paddingBottom) || 0)
+      const availW = Math.max(0, stage.clientWidth - padX)
+      const availH = Math.max(0, stage.clientHeight - padY)
+      if (availW <= 0 || availH <= 0) return
+      const next = Math.min(availW / naturalW, availH / naturalH, 1)
+      setScale((prev) => (Math.abs(next - prev) > 0.004 ? next : prev))
     }
     fitScale()
     window.addEventListener('resize', fitScale)
@@ -70,6 +81,24 @@ export function PagesPreview({
       ro.disconnect()
     }
   }, [paper.paperWidthMm, paper.paperHeightMm, paper.orientation, imposition])
+
+  useLayoutEffect(() => {
+    function fitChrome() {
+      fitPreviewRow(barFitRef.current, 'spread')
+      fitPreviewRow(pagerFitRef.current, 'center')
+    }
+    fitChrome()
+    window.addEventListener('resize', fitChrome)
+    const ro = new ResizeObserver(fitChrome)
+    const barParent = barFitRef.current?.parentElement
+    const pagerParent = pagerFitRef.current?.parentElement
+    if (barParent) ro.observe(barParent)
+    if (pagerParent && pagerParent !== barParent) ro.observe(pagerParent)
+    return () => {
+      window.removeEventListener('resize', fitChrome)
+      ro.disconnect()
+    }
+  }, [imposition, pageCount, pdfBusy, dirLabel])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -164,13 +193,7 @@ export function PagesPreview({
       aria-label="列印頁面預覽"
     >
       <header className="pages-preview-bar">
-        <div className="pages-preview-meta">
-          <strong>列印預覽</strong>
-          <span>
-            {paper.size} {dirLabel} · {impositionHint(imposition, paper.size, paper.orientation)} · 每頁 {perPage} 張 · 共{' '}
-            {pageCount} 頁 · {rows.length} 人
-          </span>
-        </div>
+        <div className="preview-fit-row" ref={barFitRef}>
         <div className="pages-preview-layout">
           <span className="toolbar-label">布局</span>
           <div className="seg">
@@ -194,8 +217,22 @@ export function PagesPreview({
               </button>
             ))}
           </div>
+          <span className="pages-preview-split">{impositionSplitLabel(imposition, paper.size)}</span>
+        </div>
+        <div className="pages-preview-actions">
+          <button type="button" className="btn" onClick={onClose}>
+            返回編輯
+          </button>
+          <button type="button" className="btn" disabled={pdfBusy} onClick={downloadPdf}>
+            {pdfBusy ? '匯出中…' : '下載為PDF'}
+          </button>
+          <button type="button" className="btn primary" onClick={onPrint}>
+            開始列印
+          </button>
+        </div>
         </div>
         <div className="pages-preview-pager">
+          <div className="preview-fit-row" ref={pagerFitRef}>
           <button type="button" className="btn" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>
             上一頁
           </button>
@@ -210,17 +247,7 @@ export function PagesPreview({
           >
             下一頁
           </button>
-        </div>
-        <div className="pages-preview-actions">
-          <button type="button" className="btn" onClick={onClose}>
-            返回編輯
-          </button>
-          <button type="button" className="btn" disabled={pdfBusy} onClick={downloadPdf}>
-            {pdfBusy ? '匯出中…' : '下載為PDF'}
-          </button>
-          <button type="button" className="btn primary" onClick={onPrint}>
-            開始列印
-          </button>
+          </div>
         </div>
       </header>
 

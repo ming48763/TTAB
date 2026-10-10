@@ -35,6 +35,7 @@ interface Props {
   onRemove: (runId: string) => void
   onRemoveChain: (fromRunId: string) => void
   onAddSeats: (runId: string, cards: AttendanceCard[]) => void
+  onCommitCards: (cards: AttendanceCard[]) => void
   onSave: () => void
   onPackChain: (fromRunId: string) => void
   onUnpack: (id: string) => void
@@ -74,27 +75,42 @@ function CardFace({
   card,
   onKind,
   picked,
+  muted,
+  confirm,
+  label,
+  draggable = true,
   onPick,
 }: {
   card: AttendanceCard
   onKind: (kind: AttendanceCardKind | null) => void
   picked?: boolean
+  muted?: boolean
+  confirm?: boolean
+  label?: string
+  draggable?: boolean
   onPick?: (card: AttendanceCard) => void
 }) {
   return (
     <button
       type="button"
-      className={`att-card is-${card.kind}${picked ? ' is-picked' : ''}${card.label === '到' ? ' is-to' : ''}`}
-      draggable
-      onClick={() => onPick?.(card)}
+      className={`att-card is-${card.kind}${picked ? ' is-picked' : ''}${card.label === '到' ? ' is-to' : ''}${muted ? ' is-muted' : ''}${confirm ? ' is-confirm' : ''}`}
+      draggable={draggable && !muted}
+      disabled={muted}
+      onClick={() => {
+        if (!muted) onPick?.(card)
+      }}
       onDragStart={(e) => {
+        if (!draggable || muted) {
+          e.preventDefault()
+          return
+        }
         onKind(card.kind)
         e.dataTransfer.setData('text/plain', `card:${JSON.stringify(card)}`)
         e.dataTransfer.effectAllowed = 'copy'
       }}
       onDragEnd={() => onKind(null)}
     >
-      <strong>{card.label}</strong>
+      <strong>{label ?? card.label}</strong>
     </button>
   )
 }
@@ -105,6 +121,9 @@ function CardRack({
   onKind,
   extra,
   pickedIds,
+  muted,
+  shown,
+  lockedLabels,
   onPick,
   footer,
 }: {
@@ -113,6 +132,9 @@ function CardRack({
   onKind: (kind: AttendanceCardKind | null) => void
   extra?: ReactNode
   pickedIds?: Set<string>
+  muted?: boolean
+  shown?: boolean
+  lockedLabels?: Set<string>
   onPick?: (card: AttendanceCard) => void
   footer?: ReactNode
 }) {
@@ -123,25 +145,31 @@ function CardRack({
         ? [cards.filter((c) => !SPAN_PERIODS.has(c.label)), cards.filter((c) => SPAN_PERIODS.has(c.label))]
         : [cards]
   return (
-    <section className={`att-rack is-${kind}`} aria-label={KIND_TITLE[kind]}>
+    <section className={`att-rack is-${kind}${shown ? ' is-shown' : ''}`} aria-label={KIND_TITLE[kind]}>
       <header className="att-rack-head">
         <span className="att-swatch" aria-hidden />
         <h2>{KIND_TITLE[kind]}</h2>
         {extra}
       </header>
-      {groups.map((group, i) => (
-        <div key={i} className={`att-card-grid is-${kind}${i > 0 ? ' is-spaced' : ''}`}>
-          {group.map((card) => (
-            <CardFace
-              key={card.id}
-              card={card}
-              onKind={onKind}
-              picked={pickedIds?.has(card.id)}
-              onPick={kind === 'seat' ? onPick : undefined}
-            />
-          ))}
-        </div>
-      ))}
+      <div className="att-card-groups">
+        {groups.map((group, i) =>
+          group.length === 0 ? null : (
+            <div key={i} className={`att-card-grid is-${kind}`}>
+              {group.map((card) => (
+                <CardFace
+                  key={card.id}
+                  card={card}
+                  onKind={onKind}
+                  picked={pickedIds?.has(card.id)}
+                  muted={muted || lockedLabels?.has(card.label)}
+                  draggable={card.label !== '到' && !lockedLabels?.has(card.label)}
+                  onPick={onPick}
+                />
+              ))}
+            </div>
+          ),
+        )}
+      </div>
       {footer}
     </section>
   )
@@ -161,6 +189,7 @@ export function AttendanceBoard({
   onRemove,
   onRemoveChain,
   onAddSeats,
+  onCommitCards,
   onSave,
   onPackChain,
   onUnpack,
@@ -173,6 +202,8 @@ export function AttendanceBoard({
   const [insert, setInsert] = useState<{ row: number; after: number } | null>(null)
   const [chainDrop, setChainDrop] = useState<number | null>(null)
   const [picked, setPicked] = useState<AttendanceCard[]>([])
+  const [pickMode, setPickMode] = useState<'multi' | 'range' | 'to' | null>(null)
+  const [rackTab, setRackTab] = useState<'seat' | 'reason' | 'period'>('seat')
   const [activeTool, setActiveTool] = useState<string | null>(null)
   const [awaitTool, setAwaitTool] = useState<string | null>(null)
   const tools = useMemo(() => toolCards(), [])
@@ -205,9 +236,48 @@ export function AttendanceBoard({
     return null
   }
 
+  function clearPick() {
+    setPickMode(null)
+    setPicked([])
+  }
+
+  function commitPicked(cards: AttendanceCard[]) {
+    if (cards.length > 0) onCommitCards(cards)
+    clearPick()
+  }
+
+  function startMode(mode: 'multi' | 'range' | 'to') {
+    if (pickMode === mode) {
+      if (mode === 'multi') commitPicked(picked)
+      else clearPick()
+      return
+    }
+    setPickMode(mode)
+    setPicked([])
+    setRackTab(mode === 'to' ? 'period' : 'seat')
+  }
+
   function pickSeat(card: AttendanceCard) {
+    if (card.kind !== 'seat') return
+    if (pickMode === 'multi') {
+      setPicked((cur) => (cur.some((c) => c.id === card.id) ? cur.filter((c) => c.id !== card.id) : [...cur, card]))
+      return
+    }
+    if (pickMode === 'range') {
+      if (picked.some((c) => c.id === card.id)) {
+        setPicked((cur) => cur.filter((c) => c.id !== card.id))
+        return
+      }
+      const next = [...picked, card]
+      if (next.length < 2) {
+        setPicked(next)
+        return
+      }
+      commitPicked(seatsBetween(next[0], next[1], seats))
+      return
+    }
     const tool = findToolBlock(activeTool) ?? lastTool()
-    if (!tool || card.kind !== 'seat') return
+    if (!tool) return
     if (tool.runId !== activeTool) setActiveTool(tool.runId)
     if (tool.label === '範圍') {
       if (picked.length === 0) {
@@ -220,6 +290,29 @@ export function AttendanceBoard({
       return
     }
     setPicked((cur) => (cur.some((c) => c.id === card.id) ? cur.filter((c) => c.id !== card.id) : [...cur, card]))
+  }
+
+  function pickPeriod(card: AttendanceCard) {
+    if (pickMode !== 'to' || card.kind !== 'period' || card.label === '到' || SPAN_PERIODS.has(card.label)) return
+    if (picked.some((c) => c.id === card.id)) {
+      setPicked((cur) => cur.filter((c) => c.id !== card.id))
+      return
+    }
+    const next = [...picked, card]
+    if (next.length < 2) {
+      setPicked(next)
+      return
+    }
+    const bridge = periods.find((p) => p.label === '到') ?? { id: 'period-到', kind: 'period' as const, label: '到' }
+    commitPicked([next[0], bridge, next[1]])
+  }
+
+  function pickCard(card: AttendanceCard) {
+    if (card.kind === 'seat') pickSeat(card)
+    if (card.kind === 'period') {
+      if (card.label === '到') startMode('to')
+      else pickPeriod(card)
+    }
   }
 
   function clickToolBrick(block: ChainBlock) {
@@ -451,13 +544,13 @@ export function AttendanceBoard({
             title="記入"
           >
             <svg viewBox="0 0 24 24" aria-hidden>
-              <path d="M8 5v14l11-7z" />
+              <path d="M9 6.5v11l9-5.5z" />
             </svg>
           </button>
         </section>
 
         <section
-          className={`att-log${dropZone === 'pack' ? ' is-drop' : ''}`}
+          className={`att-log${packs.length === 0 ? ' is-empty' : ''}${dropZone === 'pack' ? ' is-drop' : ''}`}
           aria-label="封裝區"
           onDragOver={(e) => {
             if (dragKind.current !== 'chain' && dragKind.current !== 'pack') return
@@ -522,7 +615,7 @@ export function AttendanceBoard({
       </div>
 
       <div
-        className={`att-palette ${dropZone === 'palette' ? 'is-drop' : ''}`}
+        className={`att-palette ${dropZone === 'palette' ? 'is-drop' : ''}${pickMode ? ` is-mode-${pickMode}` : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDropZone('palette')
@@ -530,22 +623,75 @@ export function AttendanceBoard({
         onDragLeave={(e) => leaveIfOut(e, 'palette')}
         onDrop={onPaletteDrop}
       >
-        <CardRack
-          kind="seat"
-          cards={seats}
-          onKind={(k) => (dragKind.current = k)}
-          pickedIds={new Set(picked.map((c) => c.id))}
-          onPick={pickSeat}
-          footer={
-            <div className="att-tool-row">
-              {tools.map((card) => (
-                <CardFace key={card.id} card={card} onKind={(k) => (dragKind.current = k)} />
-              ))}
-            </div>
-          }
-        />
-        <CardRack kind="reason" cards={reasons} onKind={(k) => (dragKind.current = k)} />
-        <CardRack kind="period" cards={periods} onKind={(k) => (dragKind.current = k)} />
+        <div className="att-palette-tabs" role="tablist" aria-label="卡片分類">
+          {(
+            [
+              ['seat', '座號'],
+              ['reason', '假由'],
+              ['period', '節次'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              className={`att-palette-tab${rackTab === id ? ' is-current' : ''}`}
+              aria-selected={rackTab === id}
+              onClick={() => setRackTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="att-palette-body">
+          <CardRack
+            kind="seat"
+            cards={seats}
+            shown={rackTab === 'seat'}
+            muted={pickMode === 'to'}
+            onKind={(k) => (dragKind.current = k)}
+            pickedIds={new Set(picked.filter((c) => c.kind === 'seat').map((c) => c.id))}
+            onPick={pickCard}
+            footer={
+              <div className="att-tool-row">
+                {tools.map((card) => {
+                  const mode = card.label === '多選' ? 'multi' : 'range'
+                  const on = pickMode === mode
+                  return (
+                    <CardFace
+                      key={card.id}
+                      card={card}
+                      label={on && mode === 'multi' ? '確定' : card.label}
+                      confirm={on && mode === 'multi'}
+                      picked={on && mode === 'range'}
+                      muted={pickMode === 'to' || (pickMode === 'multi' && mode === 'range') || (pickMode === 'range' && mode === 'multi')}
+                      draggable={false}
+                      onKind={(k) => (dragKind.current = k)}
+                      onPick={() => startMode(mode)}
+                    />
+                  )
+                })}
+              </div>
+            }
+          />
+          <CardRack
+            kind="reason"
+            cards={reasons}
+            shown={rackTab === 'reason'}
+            muted={pickMode !== null}
+            onKind={(k) => (dragKind.current = k)}
+          />
+          <CardRack
+            kind="period"
+            cards={periods}
+            shown={rackTab === 'period'}
+            muted={pickMode === 'multi' || pickMode === 'range'}
+            lockedLabels={pickMode === 'to' ? SPAN_PERIODS : undefined}
+            onKind={(k) => (dragKind.current = k)}
+            pickedIds={new Set(picked.filter((c) => c.kind === 'period').map((c) => c.id))}
+            onPick={pickCard}
+          />
+        </div>
       </div>
     </div>
   )

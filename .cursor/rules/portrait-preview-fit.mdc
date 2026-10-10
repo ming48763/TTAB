@@ -1,0 +1,15 @@
+---
+description: Portrait preview pages stay a fixed viewport size and scale their contents instead of scrolling
+alwaysApply: true
+---
+
+# Portrait preview fit
+
+In portrait (`@media (orientation: portrait)`), a preview page keeps the viewport size fixed and scales its contents so the page does not scroll.
+
+- Lock the preview to the viewport (`height: 100dvh; overflow: hidden`). Do not grow the page to fit the toolbar or the sheet.
+- Shrink the toolbar, buttons, labels, and the paper together until they fit. Prefer one row that scales down over a scrollbar. `fitPreviewRow` in `src/lib/fitPreviewChrome.ts` scales a toolbar row with `zoom` when its content is wider than the page.
+- Size the paper from the space left under the toolbar (`clientWidth` / `clientHeight` minus padding). Do not keep a minimum scale that overflows that space.
+- Hide overflow on the stage. A scrollbar is not a fallback when the height is short.
+
+Landscape keeps its own layout. Do not force this shrink onto landscape pages.

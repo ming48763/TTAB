@@ -1,4 +1,5 @@
 import { BrandMark } from './BrandMark'
+import { StepRail } from './StepRail'
 import { useState } from 'react'
 import { SeatingClassroom } from './SeatingClassroom'
 import { SeatingPrintPreview } from './SeatingPrintPreview'
@@ -111,21 +112,18 @@ export function SeatingBoard({
             <h1>排座位大師</h1>
           </div>
         </div>
-        <ol className="step-rail" aria-label="進度">
-          <li className="is-done">匯入</li>
-          <li className="is-done">欄位</li>
-          <li className="is-done">教室</li>
-          <li className="is-current">排座位</li>
-        </ol>
+        <StepRail
+          steps={[
+            { label: '匯入', state: 'is-done' },
+            { label: '欄位', state: 'is-done' },
+            { label: '教室', state: 'is-done' },
+            { label: '排座位', state: 'is-current' },
+          ]}
+        />
       </header>
       <div className="seat-assign-body">
       <section className="seat-assign-map">
         <div className="seat-assign-scroll">
-        <div className="seat-assign-bar">
-          <p className="muted">
-            把右側姓名拖到座位。若位子已有人會換成新同學，原同學回到名單。
-          </p>
-        </div>
         <SeatingClassroom
           shape={shape}
           rows={gridRows}
@@ -165,7 +163,7 @@ export function SeatingBoard({
       </section>
       <aside className="seat-pool no-print">
         <div className="seat-pool-head">
-          <h2>未入座</h2>
+          <h2>名單</h2>
           <div className="seat-pool-tools">
           <div className="seat-info-hover">
             <button type="button" className="seat-info-trigger">
@@ -209,9 +207,6 @@ export function SeatingBoard({
           </button>
           </div>
         </div>
-        <p className="booth-step-label">
-          {pool.length} 人待安排 · 已入座 {rows.length - pool.length} 人
-        </p>
         <div
           className="seat-pool-list"
           onDragOver={(e) => e.preventDefault()}
@@ -227,10 +222,7 @@ export function SeatingBoard({
             setDragStudent(null)
           }}
         >
-          {pool.length === 0 ? (
-            <p className="muted">大家都入座了。</p>
-          ) : (
-            pool.map((row) => {
+          {pool.map((row) => {
               const key = studentKey(row)
               const lines = studentCardLines(row, mappings, shownFields)
               return (
@@ -262,8 +254,7 @@ export function SeatingBoard({
                   </span>
                 </div>
               )
-            })
-          )}
+            })}
         </div>
       </aside>
       </div>
@@ -271,7 +262,7 @@ export function SeatingBoard({
         <div className="seat-notice" role="alertdialog" aria-modal="true" aria-labelledby="seat-clear-title">
           <div className="seat-notice-card">
             <h3 id="seat-clear-title">清空所有座位？</h3>
-            <p>已入座的人都會回到未入座名單，此動作無法復原。</p>
+            <p>已入座的人都會回到名單，此動作無法復原。</p>
             <div className="seat-notice-actions">
               <button type="button" className="btn" onClick={() => setConfirmClear(false)}>
                 取消

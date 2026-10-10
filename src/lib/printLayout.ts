@@ -31,3 +31,21 @@ export function impositionHint(
   if (paperSize === 'A4') return '四張A6'
   return '四張'
 }
+
+const SPLIT_HALF: Record<PaperSizeId, string> = {
+  A3: 'A4',
+  A4: 'A5',
+  B5: 'B6',
+}
+
+const SPLIT_QUARTER: Record<PaperSizeId, string> = {
+  A3: 'A5',
+  A4: 'A6',
+  B5: 'B7',
+}
+
+export function impositionSplitLabel(kind: PrintImposition, paperSize: PaperSizeId): string {
+  if (kind === '1x1') return paperSize
+  if (kind === '2x1') return `${paperSize} 分割 2張 ${SPLIT_HALF[paperSize]}`
+  return `${paperSize} 分割 4張 ${SPLIT_QUARTER[paperSize]}`
+}

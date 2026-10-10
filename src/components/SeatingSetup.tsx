@@ -1,11 +1,13 @@
 import { BrandMark } from './BrandMark'
-import { useEffect, useState } from 'react'
+import { StepRail } from './StepRail'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SeatUnitPreview, SeatingClassroom } from './SeatingClassroom'
 import {
   buildSeats,
   clampGrid,
   commitGridInput,
   groupSize,
+  MAX_GRID,
   ROOM_SHAPES,
   SEAT_MODES,
   seatCapacity,
@@ -15,6 +17,34 @@ import {
 } from '../lib/seating'
 
 type SetupStep = 'mode' | 'room' | 'grid' | 'doors'
+
+const MODE_TILE_MAX = 168
+const MODE_TILE_GAP = 12
+
+/** Largest square that fits `count` tiles in the box, capped at MODE_TILE_MAX. */
+function fitModeTiles(count: number, width: number, height: number) {
+  if (width < 8 || height < 8 || count < 1) return null
+  let bestTile = 0
+  let bestCols = 1
+  const limit = Math.min(count, Math.max(1, Math.floor((width + MODE_TILE_GAP) / (1 + MODE_TILE_GAP))))
+  for (let cols = 1; cols <= limit; cols++) {
+    const rows = Math.ceil(count / cols)
+    const tile = Math.min(
+      MODE_TILE_MAX,
+      (width - MODE_TILE_GAP * (cols - 1)) / cols,
+      (height - MODE_TILE_GAP * (rows - 1)) / rows,
+    )
+    if (tile < 1) continue
+    const larger = tile > bestTile + 0.5
+    const tieMoreCols = Math.abs(tile - bestTile) <= 0.5 && cols > bestCols
+    if (larger || tieMoreCols) {
+      bestTile = tile
+      bestCols = cols
+    }
+  }
+  if (bestTile < 1) return null
+  return { tile: Math.floor(bestTile), cols: bestCols }
+}
 
 function GridCountInput({
   label,
@@ -37,37 +67,67 @@ function GridCountInput({
     if (next !== value) onCommit(next)
   }
 
+  function step(delta: number) {
+    const next = clampGrid(value + delta)
+    if (next === value) return
+    onCommit(next)
+  }
+
   return (
-    <label>
-      {label}
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        value={text}
-        onChange={(e) => {
-          const v = e.target.value
-          if (v === '') {
-            setText('')
-            return
-          }
-          if (!/^\d{1,2}$/.test(v)) return
-          setText(v)
-          const n = Number(v)
-          if (n >= 1 && n <= 12) {
-            const next = clampGrid(n)
-            if (next !== value) onCommit(next)
-          }
-        }}
-        onBlur={finish}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            finish()
-            e.currentTarget.blur()
-          }
-        }}
-      />
+    <label className="seat-count">
+      <span className="seat-count-label">{label}</span>
+      <span className="seat-count-box">
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          value={text}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v === '') {
+              setText('')
+              return
+            }
+            if (!/^\d{1,2}$/.test(v)) return
+            setText(v)
+            const n = Number(v)
+            if (n >= 1 && n <= MAX_GRID) {
+              const next = clampGrid(n)
+              if (next !== value) onCommit(next)
+            }
+          }}
+          onBlur={finish}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              finish()
+              e.currentTarget.blur()
+            }
+          }}
+        />
+        <span className="seat-count-spin">
+          <button
+            type="button"
+            className="seat-count-up"
+            aria-label={`${label} 增加`}
+            disabled={value >= MAX_GRID}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => step(1)}
+          >
+            <span className="seat-count-tri" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="seat-count-down"
+            aria-label={`${label} 減少`}
+            disabled={value <= 1}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => step(-1)}
+          >
+            <span className="seat-count-tri" aria-hidden="true" />
+          </button>
+        </span>
+      </span>
     </label>
   )
 }
@@ -87,6 +147,7 @@ interface Props {
   onBack: () => void
   onNext: () => void
   onHome: () => void
+  startPhase?: SetupStep
 }
 
 export function SeatingSetup({
@@ -104,14 +165,48 @@ export function SeatingSetup({
   onBack,
   onNext,
   onHome,
+  startPhase = 'mode',
 }: Props) {
-  const [phase, setPhase] = useState<SetupStep>('mode')
+  const [phase, setPhase] = useState<SetupStep>(startPhase)
   const seats = buildSeats(rows, cols, mode)
   const cap = seatCapacity(rows, cols, mode)
   const size = groupSize(mode)
   const stepIndex = phase === 'mode' ? 1 : phase === 'room' ? 2 : phase === 'grid' ? 3 : 4
 
   const [notice, setNotice] = useState<string | null>(null)
+  const modeFitRef = useRef<HTMLDivElement>(null)
+  const [modeFit, setModeFit] = useState({ tile: MODE_TILE_MAX, cols: 2 })
+
+  const fittingTiles = phase === 'mode' || phase === 'room'
+  const tileCount = phase === 'room' ? ROOM_SHAPES.length : SEAT_MODES.length
+
+  useLayoutEffect(() => {
+    if (!fittingTiles) return
+    const el = modeFitRef.current
+    if (!el) return
+    const apply = () => {
+      const style = getComputedStyle(el)
+      const padX = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
+      const padY = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
+      const next = fitModeTiles(tileCount, el.clientWidth - padX, el.clientHeight - padY)
+      if (!next) return
+      if (window.matchMedia('(orientation: portrait)').matches) {
+        const choose = el.closest('.booth-choose')
+        if (choose) {
+          const chooseStyle = getComputedStyle(choose)
+          const choosePad =
+            Number.parseFloat(chooseStyle.paddingTop) + Number.parseFloat(chooseStyle.paddingBottom)
+          const cap = Math.floor(choose.clientHeight - choosePad - 4)
+          if (cap >= 48) next.tile = Math.min(next.tile, cap)
+        }
+      }
+      setModeFit((prev) => (prev.tile === next.tile && prev.cols === next.cols ? prev : next))
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [fittingTiles, tileCount])
 
   function seatsShort() {
     return studentCount > cap
@@ -147,15 +242,17 @@ export function SeatingSetup({
             <h1>排座位大師</h1>
           </div>
         </div>
-        <ol className="step-rail" aria-label="進度">
-          <li className="is-done">匯入</li>
-          <li className="is-done">欄位</li>
-          <li className="is-current">教室</li>
-          <li>排座位</li>
-        </ol>
+        <StepRail
+          steps={[
+            { label: '匯入', state: 'is-done' },
+            { label: '欄位', state: 'is-done' },
+            { label: '教室', state: 'is-current' },
+            { label: '排座位' },
+          ]}
+        />
       </header>
       <div className="booth-main">
-        <section className="booth-choose">
+        <section className={`booth-choose${fittingTiles ? ' is-mode' : ''}${phase === 'grid' ? ' is-grid' : ''}`}>
           <p className="booth-step-label">
             步驟 {stepIndex}／4
             {phase === 'mode'
@@ -170,18 +267,27 @@ export function SeatingSetup({
           {phase === 'mode' && (
             <>
               <h2>選擇座位模式</h2>
-              <div className="seat-mode-grid">
-                {SEAT_MODES.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`tool-tile is-ready ${mode === opt.id ? 'is-picked' : ''}`}
-                    onClick={() => onMode(opt.id)}
-                  >
-                    <strong>{opt.label}</strong>
-                    <span>{opt.hint}</span>
-                  </button>
-                ))}
+              <div className="seat-mode-fit" ref={modeFitRef}>
+                <div
+                  className="seat-mode-grid"
+                  style={{
+                    ['--tile' as string]: `${modeFit.tile}px`,
+                    gridTemplateColumns: `repeat(${modeFit.cols}, ${modeFit.tile}px)`,
+                    gridAutoRows: `${modeFit.tile}px`,
+                  }}
+                >
+                  {SEAT_MODES.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`tool-tile is-ready ${mode === opt.id ? 'is-picked' : ''}`}
+                      onClick={() => onMode(opt.id)}
+                    >
+                      <strong>{opt.label}</strong>
+                      <span>{opt.hint}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -189,19 +295,26 @@ export function SeatingSetup({
           {phase === 'room' && (
             <>
               <h2>選擇教室格局</h2>
-              <p className="booth-step-label">黑板固定在前方。直式與橫式教室比例與 A4 相同。</p>
-              <div className="seat-mode-grid is-three">
-                {ROOM_SHAPES.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`tool-tile is-ready ${shape === opt.id ? 'is-picked' : ''}`}
-                    onClick={() => onShape(opt.id)}
-                  >
-                    <strong>{opt.label}</strong>
-                    <span>{opt.hint}</span>
-                  </button>
-                ))}
+              <div className="seat-mode-fit" ref={modeFitRef}>
+                <div
+                  className="seat-mode-grid is-three"
+                  style={{
+                    ['--tile' as string]: `${modeFit.tile}px`,
+                    gridTemplateColumns: `repeat(${modeFit.cols}, ${modeFit.tile}px)`,
+                    gridAutoRows: `${modeFit.tile}px`,
+                  }}
+                >
+                  {ROOM_SHAPES.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`tool-tile is-ready ${shape === opt.id ? 'is-picked' : ''}`}
+                      onClick={() => onShape(opt.id)}
+                    >
+                      <strong>{opt.label}</strong>
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -209,27 +322,66 @@ export function SeatingSetup({
           {phase === 'grid' && (
             <>
               <h2>選擇布局</h2>
-              <p className="booth-step-label">
-                排是寬（由左到右），每排單位是長（由黑板往後）。目前每個單位 {size} 人。
-              </p>
-              <div className="seat-grid-fields">
-                <GridCountInput label="排（寬）" value={rows} onCommit={onRows} />
-                <GridCountInput label="每排單位（長）" value={cols} onCommit={onCols} />
+              <div className="seat-grid-block">
+                <div className="seat-grid-fields">
+                  <GridCountInput label="排（寬）" value={rows} onCommit={onRows} />
+                  <GridCountInput label="每排單位（長）" value={cols} onCommit={onCols} />
+                </div>
+                <p className="muted seat-grid-summary">
+                  <span className="seat-grid-calc">
+                    {rows} 排 × {cols} 單位 × {size} 人 ＝ {cap} 個座位
+                  </span>
+                  {studentCount > cap ? (
+                    <span className="seat-grid-short">{studentCount} 人，目前座位不夠</span>
+                  ) : null}
+                </p>
               </div>
-              <p className="muted">
-                {rows} 排 × {cols} 單位 × {size} 人 ＝ {cap} 個座位
-                {studentCount > cap ? `（名單 ${studentCount} 人，座位較少）` : `（名單 ${studentCount} 人）`}
-              </p>
             </>
           )}
 
           {phase === 'doors' && (
             <>
               <h2>開門</h2>
-              <p className="booth-step-label">
-                外圍是一格一格的方塊。在同一面牆上點擊連續三格就會開門，接著幫門取名。點 × 可刪除。
-              </p>
-              {doors.length === 0 && <p className="muted">目前還沒有門。</p>}
+              {doors.length === 0 ? (
+                <p className="muted">目前還沒有門。</p>
+              ) : (
+                <div className="seat-door-table-wrap">
+                  <table className="seat-door-table">
+                    <thead>
+                      <tr>
+                        <th>序號</th>
+                        <th>門的名稱</th>
+                        <th>刪除</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {doors.map((door, index) => (
+                        <tr key={door.id}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <input
+                              aria-label={`門 ${index + 1} 的名稱`}
+                              value={door.name}
+                              onChange={(e) =>
+                                onDoors(
+                                  doors.map((item) =>
+                                    item.id === door.id ? { ...item, name: e.target.value } : item,
+                                  ),
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button type="button" onClick={() => onDoors(doors.filter((item) => item.id !== door.id))}>
+                              刪除
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
 
@@ -260,10 +412,6 @@ export function SeatingSetup({
                 onAddDoor={
                   phase === 'doors' ? (door) => onDoors([...doors, door]) : undefined
                 }
-                onRenameDoor={(id, name) =>
-                  onDoors(doors.map((d) => (d.id === id ? { ...d, name } : d)))
-                }
-                onRemoveDoor={(id) => onDoors(doors.filter((d) => d.id !== id))}
               />
             )}
           </div>

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import type {
   ColumnMapping,
   LayoutItem,
@@ -17,8 +26,6 @@ import {
   PAPER_PRESETS,
   paperDimensions,
   resolveClickSelection,
-  totalCardHeightMm,
-  totalCardWidthMm,
   ungroupItems,
   type AlignAction,
 } from '../lib/paper'
@@ -78,7 +85,6 @@ export function LayoutEditor({
   mappings,
   sample,
   rows,
-  fileName,
   onChange,
   onBack,
   onHome,
@@ -132,6 +138,11 @@ export function LayoutEditor({
       cancelled = true
     }
   }, [settings.pendingCenterIds, onChange])
+
+  useLayoutEffect(() => {
+    const face = document.querySelector('.editor-shell .plate-face.is-interactive')
+    face?.scrollIntoView({ block: 'center', inline: 'nearest' })
+  }, [])
 
   const flushHistory = useCallback(() => {
     if (historyTimerRef.current != null) {
@@ -399,9 +410,102 @@ export function LayoutEditor({
 
   const paperSize: PaperSizeId =
     settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
-  const totalH = totalCardHeightMm(settings.mode, settings.faceHeightMm)
-  const totalW = totalCardWidthMm(settings.mode, settings.widthMm)
   const guide = paperDimensions(paperSize, settings.orientation)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const paperRef = useRef<HTMLDivElement>(null)
+  const panDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const [portrait, setPortrait] = useState(false)
+  const [panning, setPanning] = useState(false)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [fit, setFit] = useState({ scale: 1, w: 0, h: 0 })
+  const fitMode = portrait && settings.mode === 'desk'
+  const fitRef = useRef(fit)
+  fitRef.current = fit
+
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const sync = () => setPortrait(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    setPan({ x: 0, y: 0 })
+  }, [guide.widthMm, guide.heightMm, fitMode])
+
+  useLayoutEffect(() => {
+    if (!fitMode) return
+    const stage = stageRef.current
+    const paper = paperRef.current
+    if (!stage || !paper) return
+    function measure() {
+      if (!stage || !paper) return
+      const styles = getComputedStyle(stage)
+      const padX = (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0)
+      const padY = (Number.parseFloat(styles.paddingTop) || 0) + (Number.parseFloat(styles.paddingBottom) || 0)
+      const availW = Math.max(40, stage.clientWidth - padX - 8)
+      const availH = Math.max(40, stage.clientHeight - padY - 8)
+      const natW = paper.offsetWidth
+      const natH = paper.offsetHeight
+      if (natW <= 0 || natH <= 0) return
+      const scale = Math.min(availW / natW, availH / natH, 1)
+      const w = Math.round(natW * scale)
+      const h = Math.round(natH * scale)
+      setFit((prev) =>
+        Math.abs(prev.scale - scale) < 0.004 && prev.w === w && prev.h === h
+          ? prev
+          : { scale, w, h },
+      )
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(stage)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [fitMode, guide.widthMm, guide.heightMm, settings.widthMm, settings.faceHeightMm, settings.orientation])
+
+  function clampPan(x: number, y: number) {
+    const stage = stageRef.current
+    const box = fitRef.current
+    if (!stage || box.w <= 0) return { x, y }
+    const maxX = Math.max(24, (stage.clientWidth - box.w) / 2)
+    const maxY = Math.max(24, (stage.clientHeight - box.h) / 2)
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    }
+  }
+
+  function onStagePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!fitMode || e.button !== 0) return
+    const el = e.target as HTMLElement
+    if (
+      el.closest(
+        '.plate-item, .item-mini-bar, .item-edit, .stand-preview, button, a, input, textarea, select, .mini-picker',
+      )
+    ) {
+      return
+    }
+    panDrag.current = { x: e.clientX, y: e.clientY, ox: pan.x, oy: pan.y }
+    setPanning(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onStagePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const drag = panDrag.current
+    if (!drag) return
+    setPan(clampPan(drag.ox + (e.clientX - drag.x), drag.oy + (e.clientY - drag.y)))
+  }
+
+  function onStagePointerUp() {
+    if (!panDrag.current) return
+    panDrag.current = null
+    setPanning(false)
+  }
 
   return (
     <div className="editor-shell">
@@ -411,9 +515,6 @@ export function LayoutEditor({
           <BrandMark size="sm" onHome={onHome} />
           <div className="toolbar-meta">
             <strong>{title}</strong>
-            <span>
-              {fileName} · {rows.length} 人 · {totalW}×{totalH} mm
-            </span>
           </div>
         </div>
 
@@ -669,11 +770,36 @@ export function LayoutEditor({
       </header>
 
       <div className={`editor-canvas no-print ${selected || multiCount > 1 ? 'has-footer' : ''}`}>
-        <div className="editor-stage">
+        <div
+          className={`editor-stage${fitMode ? ' is-fit' : ''}${panning ? ' is-panning' : ''}`}
+          ref={stageRef}
+          onPointerDown={onStagePointerDown}
+          onPointerMove={onStagePointerMove}
+          onPointerUp={onStagePointerUp}
+          onPointerCancel={onStagePointerUp}
+        >
           <StandPreview settings={settings} student={sample} />
+          <div
+            className="paper-pan"
+            style={
+              fitMode
+                ? {
+                    width: fit.w || undefined,
+                    height: fit.h || undefined,
+                    transform: `translate(${pan.x}px, ${pan.y}px)`,
+                  }
+                : undefined
+            }
+          >
             <div
+              ref={paperRef}
               className="paper-stage-inner has-guide"
-              style={{ width: `${guide.widthMm}mm`, height: `${guide.heightMm}mm` }}
+              style={{
+                width: `${guide.widthMm}mm`,
+                height: `${guide.heightMm}mm`,
+                transform: fitMode ? `scale(${fit.scale})` : undefined,
+                transformOrigin: fitMode ? 'top left' : undefined,
+              }}
               onPointerDown={(e) => {
                 const el = e.target as HTMLElement
                 if (el.closest('.plate-item, .item-mini-bar')) return
@@ -688,10 +814,11 @@ export function LayoutEditor({
                     {guide.heightMm} mm
                   </span>
                 </div>
-              <div className="paper-card-slot">
+              <div className={`paper-card-slot${settings.mode === 'desk' ? ' is-fill' : ''}`}>
                 <PlateCard settings={settings} student={sample} showGuides editor={editor} />
               </div>
             </div>
+          </div>
           </div>
         <div className={`canvas-corner-actions no-print ${selected || multiCount > 1 ? 'has-footer' : ''}`}>
           <button type="button" className="btn" onClick={onBack}>

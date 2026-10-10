@@ -3,6 +3,7 @@ import { BrandMark } from '../components/BrandMark'
 import { ConfirmFields } from '../components/ConfirmFields'
 import { ExcelUpload } from '../components/ExcelUpload'
 import { SweepBoard, type SweepAssignments } from '../components/SweepBoard'
+import { StepRail } from '../components/StepRail'
 import type { ColumnMapping, ExtraLabelOptions, StudentRow } from '../types'
 
 const defaultExtras = (): ExtraLabelOptions => ({
@@ -51,11 +52,13 @@ export function SweepTool({ onHome }: Props) {
               <h1>排掃地大師</h1>
             </div>
           </div>
-          <ol className="step-rail" aria-label="進度">
-            <li className={step === 'upload' ? 'is-current' : 'is-done'}>匯入</li>
-            <li className={step === 'map' ? 'is-current' : ''}>欄位</li>
-            <li>排掃地</li>
-          </ol>
+          <StepRail
+            steps={[
+              { label: '匯入', state: step === 'upload' ? 'is-current' : 'is-done' },
+              { label: '欄位', state: step === 'map' ? 'is-current' : '' },
+              { label: '排掃地' },
+            ]}
+          />
         </header>
       )}
 
@@ -98,12 +101,6 @@ export function SweepTool({ onHome }: Props) {
           />
         )}
       </main>
-
-      {showChrome && (
-        <footer className="site-footer no-print">
-          <p>匯入名冊後，在內掃／外掃建立工作資料夾，再把學生拖進去。</p>
-        </footer>
-      )}
     </div>
   )
 }

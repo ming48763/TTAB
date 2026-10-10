@@ -3,6 +3,9 @@ import { parseExcelFile } from '../lib/excel'
 import type { ColumnMapping, StudentRow } from '../types'
 
 interface Props {
+  lead?: string
+  dropHint?: string | null
+  centerHead?: boolean
   onLoaded: (payload: {
     fileName: string
     headers: string[]
@@ -11,7 +14,12 @@ interface Props {
   }) => void
 }
 
-export function ExcelUpload({ onLoaded }: Props) {
+export function ExcelUpload({
+  onLoaded,
+  lead = '上傳 Excel（.xlsx / .xls / .csv）',
+  dropHint = null,
+  centerHead = true,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -39,9 +47,9 @@ export function ExcelUpload({ onLoaded }: Props) {
   return (
     <div className="step-page">
       <div className="panel upload-panel">
-        <div className="panel-head">
+        <div className={`panel-head${centerHead ? ' is-center' : ''}`}>
           <h2>匯入名冊</h2>
-          <p>上傳 Excel（.xlsx / .xls / .csv），上傳後會自動進入欄位確認。</p>
+          <p>{lead}</p>
         </div>
 
         <div
@@ -76,7 +84,7 @@ export function ExcelUpload({ onLoaded }: Props) {
             }}
           />
           <span className="dropzone-title">{busy ? '讀取中…' : '拖曳檔案到這裡，或點擊選擇'}</span>
-          <span className="dropzone-hint">第一列為表頭，其後每一列一位學生</span>
+          {dropHint ? <span className="dropzone-hint">{dropHint}</span> : null}
         </div>
 
         {error && <p className="form-error">{error}</p>}

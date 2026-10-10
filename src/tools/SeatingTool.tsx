@@ -4,6 +4,7 @@ import { ConfirmFields } from '../components/ConfirmFields'
 import { ExcelUpload } from '../components/ExcelUpload'
 import { SeatingBoard } from '../components/SeatingBoard'
 import { SeatingSetup } from '../components/SeatingSetup'
+import { StepRail } from '../components/StepRail'
 import type { ClassroomDoor, RoomShape, SeatGroupMode } from '../lib/seating'
 import type { ColumnMapping, ExtraLabelOptions, StudentRow } from '../types'
 
@@ -34,6 +35,7 @@ export function SeatingTool({ onHome }: Props) {
   const [shape, setShape] = useState<RoomShape>('portrait')
   const [doors, setDoors] = useState<ClassroomDoor[]>([])
   const [assignments, setAssignments] = useState<Record<string, string>>({})
+  const [setupAtDoors, setSetupAtDoors] = useState(false)
 
   function resetToUpload() {
     setStep('upload')
@@ -57,12 +59,14 @@ export function SeatingTool({ onHome }: Props) {
               <h1>排座位大師</h1>
             </div>
           </div>
-          <ol className="step-rail" aria-label="進度">
-            <li className={step === 'upload' ? 'is-current' : 'is-done'}>匯入</li>
-            <li className={step === 'map' ? 'is-current' : ''}>欄位</li>
-            <li>教室</li>
-            <li>排座位</li>
-          </ol>
+          <StepRail
+            steps={[
+              { label: '匯入', state: step === 'upload' ? 'is-current' : 'is-done' },
+              { label: '欄位', state: step === 'map' ? 'is-current' : '' },
+              { label: '教室' },
+              { label: '排座位' },
+            ]}
+          />
         </header>
       )}
 
@@ -87,7 +91,10 @@ export function SeatingTool({ onHome }: Props) {
             onChangeMappings={setMappings}
             onChangeExtras={setExtras}
             onBack={resetToUpload}
-            onConfirm={() => setStep('setup')}
+            onConfirm={() => {
+              setSetupAtDoors(false)
+              setStep('setup')
+            }}
             showExtras={false}
             confirmLabel="確認，開始排座位"
           />
@@ -118,6 +125,7 @@ export function SeatingTool({ onHome }: Props) {
             onBack={() => setStep('map')}
             onNext={() => setStep('assign')}
             onHome={onHome}
+            startPhase={setupAtDoors ? 'doors' : 'mode'}
           />
         )}
 
@@ -132,17 +140,14 @@ export function SeatingTool({ onHome }: Props) {
             doors={doors}
             assignments={assignments}
             onAssign={setAssignments}
-            onBack={() => setStep('setup')}
+            onBack={() => {
+              setSetupAtDoors(true)
+              setStep('setup')
+            }}
             onHome={onHome}
           />
         )}
       </main>
-
-      {showChrome && (
-        <footer className="site-footer no-print">
-          <p>匯入名冊後，設定座位模式與教室，再把學生拖到位子上。</p>
-        </footer>
-      )}
     </div>
   )
 }

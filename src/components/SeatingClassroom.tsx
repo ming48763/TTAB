@@ -29,8 +29,6 @@ interface Props {
   doorEdit?: boolean
   seatNames?: Record<string, string>
   onAddDoor?: (door: ClassroomDoor) => void
-  onRenameDoor?: (id: string, name: string) => void
-  onRemoveDoor?: (id: string) => void
   onSeatDragOver?: (e: DragEvent) => void
   onSeatDrop?: (seatId: string, e: DragEvent) => void
   onSeatDragStart?: (seatId: string, e: DragEvent) => void
@@ -140,7 +138,6 @@ export function SeatingClassroom({
   doorEdit = false,
   seatNames = {},
   onAddDoor,
-  onRemoveDoor,
   onSeatDragOver,
   onSeatDrop,
   onSeatDragStart,
@@ -294,17 +291,9 @@ export function SeatingClassroom({
                   onClick={() => clickCell(cell.wall, cell.index)}
                 />
               ))}
-            {doors.map((d) => (
+            {doors.map((d, index) => (
                 <div key={d.id} className="seat-peri-door" style={doorGrid(d, ring)}>
-                  <span className="seat-door-tag">{d.name}</span>
-                  <button
-                    type="button"
-                    className="seat-door-x"
-                    aria-label={`刪除${d.name}`}
-                    onClick={() => onRemoveDoor?.(d.id)}
-                  >
-                    ×
-                  </button>
+                  <span className="seat-door-tag">{index + 1}</span>
                 </div>
               ))}
           </>
