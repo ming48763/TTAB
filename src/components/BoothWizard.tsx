@@ -1,20 +1,25 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  applyBadgeSize,
   applyCardPaperSize,
   applyOrientation,
+  BADGE_IDS,
+  BADGE_PRESETS,
   measureAlignUnits,
   paperDimensions,
   PAPER_PRESETS,
 } from '../lib/paper'
-import { applyBoothLayout, boothLayoutHasCornerExtra, boothLayoutPinsCorners, boothLayoutPresets, boothSlotAt, boothSlotCount, BOOTH_CORNER_CHOICES, defaultBoothLayoutId, itemBoothLabel, resolveBoothLayoutId } from '../lib/boothLayouts'
+import { applyBadgeZones, applyBoothLayout, boothLayoutHasCornerExtra, boothLayoutPinsCorners, boothLayoutPresets, boothSlotAt, boothSlotCount, BOOTH_CORNER_CHOICES, defaultBadgeZoneOf, defaultBoothLayoutId, itemBoothLabel, resolveBoothLayoutId } from '../lib/boothLayouts'
+import type { BadgeZoneId, BadgeZoneStyle } from '../lib/boothLayouts'
 import type { PrintImposition } from '../lib/printLayout'
-import type { LayoutSettings, LayoutItem, PageOrientation, PaperSizeId, StudentRow } from '../types'
+import type { BadgeSizeId, LayoutSettings, LayoutItem, PageOrientation, PaperSizeId, StudentRow } from '../types'
 import {
   CARD_DECOR_CHOICES,
   CARD_DECOR_COLORS,
   DEFAULT_CARD_DECOR,
   FONT_CHOICES,
   clampFontWeight,
+  uid,
 } from '../types'
 import { PagesPreview } from './PagesPreview'
 import { PlateCard } from './PlateCard'
@@ -24,6 +29,25 @@ import { StandPreview } from './StandPreview'
 type DropLoc = { zone: 'slot'; index: number } | { zone: 'idle'; index: number } | { zone: 'idle-bin' }
 
 const MM_PX = 96 / 25.4
+
+function initialBadgePick(items: LayoutItem[]): Record<BadgeZoneId, string | null> {
+  const zoneOf = defaultBadgeZoneOf(items)
+  const pick: Record<BadgeZoneId, string | null> = { top: null, mid: null, bot: null }
+  for (const item of items) {
+    const zone = zoneOf[item.id]
+    if (pick[zone] == null) pick[zone] = item.id
+  }
+  return pick
+}
+
+function picksToZoneOf(pick: Record<BadgeZoneId, string | null>): Record<string, BadgeZoneId> {
+  const map: Record<string, BadgeZoneId> = {}
+  ;(['top', 'mid', 'bot'] as const).forEach((zone) => {
+    const id = pick[zone]
+    if (id) map[id] = zone
+  })
+  return map
+}
 
 /** Fit a paper sheet inside the preview stage. Uses the stage box, not the sheet's laid-out size. */
 function fitPreviewScale(stageW: number, stageH: number, widthMm: number, heightMm: number) {
@@ -109,13 +133,19 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const [dragOver, setDragOver] = useState<DropLoc | null>(null)
   const [showPages, setShowPages] = useState(false)
   const [printLayout, setPrintLayout] = useState<PrintImposition>('1x1')
+  const [sheetSize, setSheetSize] = useState<PaperSizeId>('A4')
   const stageRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const pendingCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
   const [scale, setScale] = useState(0.28)
 
+  const isBadge = settings.mode === 'badge-single'
   const paperSize: PaperSizeId = settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
-  const guide = paperDimensions(paperSize, settings.orientation)
+  const badgeSize: BadgeSizeId = settings.badgeSize ?? 'conf'
+  const guide = isBadge
+    ? { widthMm: settings.widthMm, heightMm: settings.faceHeightMm }
+    : paperDimensions(paperSize, settings.orientation)
+  const layoutFontScale = isBadge ? Math.min(settings.widthMm, settings.faceHeightMm) / 90 : 1
   const layouts = useMemo(
     () => boothLayoutPresets(sourceItems.current.length),
     [],
@@ -150,6 +180,10 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     onChange(applyCardPaperSize(settings, id, settings.orientation))
   }
 
+  function pickBadgeSize(id: BadgeSizeId) {
+    onChange(applyBadgeSize(settings, id))
+  }
+
   function pickOrientation(dir: PageOrientation) {
     onChange(applyOrientation(settings, dir))
   }
@@ -175,7 +209,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         settings.widthMm,
         sample,
         settings.faceHeightMm,
-        sizePct / 100,
+        (sizePct / 100) * layoutFontScale,
       ),
       pendingCenterIds: undefined,
     })
@@ -346,6 +380,13 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const textFont = textItem?.fontFamily ?? FONT_CHOICES[0].id
   const textColor = textItem?.color ?? '#0f241f'
   const [sizePct, setSizePct] = useState(100)
+  const [badgeZones, setBadgeZones] = useState<Record<BadgeZoneId, BadgeZoneStyle>>({
+    top: { on: true, align: 'center', bold: false, sizePct: 100 },
+    mid: { on: true, align: 'center', bold: true, sizePct: 100 },
+    bot: { on: true, align: 'center', bold: false, sizePct: 100 },
+  })
+  const [badgePick, setBadgePick] = useState<Record<BadgeZoneId, string | null>>(() => initialBadgePick(settings.items))
+  const [badgeDraft, setBadgeDraft] = useState<{ zone: BadgeZoneId; text: string } | null>(null)
   const [sizeDragEnd, setSizeDragEnd] = useState(0)
   const sizeBase = useRef<{ id: string; x: number; y: number; fontSizeMm: number }[] | null>(null)
   const sizeCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
@@ -369,15 +410,44 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const previewHighlightIds = hoverItemId ? [hoverItemId] : []
 
   useLayoutEffect(() => {
+    if (isBadge) return
     commitLayout(layoutId, slotIds)
     // 進入拍貼機時只保留位置框內的物件在紙上
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
+    if (!isBadge) return
+    const placed = applyBadgeZones(
+      settings.items,
+      picksToZoneOf(badgePick),
+      badgeZones,
+      settings.faceHeightMm,
+      sizePct,
+      layoutFontScale,
+    )
+    const same = placed.every((item, index) => {
+      const prev = settings.items[index]
+      return (
+        prev &&
+        prev.id === item.id &&
+        Boolean(prev.hidden) === Boolean(item.hidden) &&
+        prev.x === item.x &&
+        prev.y === item.y &&
+        prev.fontSizeMm === item.fontSizeMm &&
+        prev.align === item.align &&
+        prev.fontWeight === item.fontWeight
+      )
+    })
+    if (same) return
+    sourceItems.current = placed.map((item) => ({ ...item }))
+    onChange({ ...settings, items: placed })
+  }, [isBadge, settings, badgePick, badgeZones, sizePct, layoutFontScale, onChange])
+
+  useLayoutEffect(() => {
     let cancelled = false
     function nudge() {
-      if (cancelled || aligningRef.current || showPages || sizeHoldNudge.current !== 0) return
+      if (cancelled || aligningRef.current || showPages || sizeHoldNudge.current !== 0 || isBadge) return
       if (boothLayoutPinsCorners(resolvedLayout())) return
       if (phase === 'type' && !GROUP_CENTER_LAYOUTS.has(resolvedLayout())) return
       const root = sheetRef.current
@@ -489,7 +559,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   useLayoutEffect(() => {
     if (phase !== 'type' || sizeDragEnd === 0 || sizeCentered.current === sizeDragEnd) return
     sizeCentered.current = sizeDragEnd
-    if (!GROUP_CENTER_LAYOUTS.has(layoutId)) return
+    if (isBadge || !GROUP_CENTER_LAYOUTS.has(layoutId)) return
 
     if (!layoutTouched.current && layoutId === 'two-equal-tight') {
       const placed = applyBoothLayout(
@@ -500,7 +570,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         settings.widthMm,
         sample,
         settings.faceHeightMm,
-        sizePct / 100,
+        (sizePct / 100) * layoutFontScale,
       )
       const scale = Math.max(sizePct, 1) / 100
       sizeBase.current = placed.map((it) => ({
@@ -571,6 +641,10 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   }, [phase, sizeDragEnd, settings, onChange, layoutId, sizePct, slotIds, sample])
 
   function applySizePct(pct: number) {
+    if (isBadge) {
+      setSizePct(pct)
+      return
+    }
     const base = sizeBase.current
     if (!base?.length) return
     const scale = pct / 100
@@ -624,12 +698,14 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       return
     }
     if (phase === 'type') {
-      if (!layoutTouched.current) {
-        const id = defaultBoothLayoutId(sourceItems.current.length)
-        setLayoutId(id)
-        fitSlots(id, slotIds, idleIds)
-      } else {
-        commitLayout(layoutId, slotIds)
+      if (!isBadge) {
+        if (!layoutTouched.current) {
+          const id = defaultBoothLayoutId(sourceItems.current.length)
+          setLayoutId(id)
+          fitSlots(id, slotIds, idleIds)
+        } else {
+          commitLayout(layoutId, slotIds)
+        }
       }
       setPhase('layout')
       return
@@ -643,6 +719,43 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     else if (phase === 'frame') setPhase('layout')
   }
 
+  function pickBadgeContent(zone: BadgeZoneId, itemId: string) {
+    setBadgePick((cur) => {
+      const next = { ...cur, [zone]: itemId || null }
+      ;(['top', 'mid', 'bot'] as const).forEach((other) => {
+        if (other !== zone && itemId && next[other] === itemId) next[other] = null
+      })
+      return next
+    })
+  }
+
+  function addBadgeContent(zone: BadgeZoneId, text: string) {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const sampleItem = settings.items.find((item) => item.kind !== 'image')
+    const item: LayoutItem = {
+      id: uid('static'),
+      kind: 'static',
+      text: trimmed,
+      x: 50,
+      y: 50,
+      fontSizeMm: sampleItem?.fontSizeMm ?? 8,
+      fontWeight: badgeZones[zone].bold ? 700 : 400,
+      align: badgeZones[zone].align,
+      color: sampleItem?.color ?? '#0f241f',
+      fontFamily: sampleItem?.fontFamily,
+    }
+    setBadgePick((cur) => {
+      const next = { ...cur, [zone]: item.id }
+      ;(['top', 'mid', 'bot'] as const).forEach((other) => {
+        if (other !== zone && next[other] === item.id) next[other] = null
+      })
+      return next
+    })
+    onChange({ ...settings, items: [...settings.items, item] })
+    setBadgeDraft(null)
+  }
+
   return (
     <div className="booth-shell">
       <div className="booth-main">
@@ -650,7 +763,9 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
           <p className="booth-step-label">
             步驟 {stepIndex}／4
             {phase === 'paper'
-              ? ' · 尺寸與方向'
+              ? isBadge
+                ? ' · 尺寸'
+                : ' · 尺寸與方向'
               : phase === 'type'
                 ? ' · 文字'
                 : phase === 'layout'
@@ -661,39 +776,59 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
 
           {phase === 'paper' && (
             <>
-              <h2>紙張尺寸</h2>
+              <h2>{isBadge ? '名牌尺寸' : '紙張尺寸'}</h2>
               <div className="booth-cards">
-                {PAPER_IDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`booth-card ${paperSize === id ? 'is-active' : ''}`}
-                    onClick={() => pickSize(id)}
-                  >
-                    <strong>{id}</strong>
-                    <span>
-                      {PAPER_PRESETS[id].shortMm}×{PAPER_PRESETS[id].longMm} mm
-                    </span>
-                  </button>
-                ))}
+                {isBadge
+                  ? BADGE_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`booth-card ${badgeSize === id ? 'is-active' : ''}`}
+                        onClick={() => pickBadgeSize(id)}
+                      >
+                        <strong>{BADGE_PRESETS[id].label}</strong>
+                        <span>
+                          {BADGE_PRESETS[id].inch}
+                          <br />
+                          {BADGE_PRESETS[id].widthMm}×{BADGE_PRESETS[id].heightMm} mm
+                        </span>
+                      </button>
+                    ))
+                  : PAPER_IDS.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`booth-card ${paperSize === id ? 'is-active' : ''}`}
+                        onClick={() => pickSize(id)}
+                      >
+                        <strong>{id}</strong>
+                        <span>
+                          {PAPER_PRESETS[id].shortMm}×{PAPER_PRESETS[id].longMm} mm
+                        </span>
+                      </button>
+                    ))}
               </div>
-              <h2>方向</h2>
-              <div className="booth-cards">
-                <button
-                  type="button"
-                  className={`booth-card ${settings.orientation === 'portrait' ? 'is-active' : ''}`}
-                  onClick={() => pickOrientation('portrait')}
-                >
-                  <strong>直向</strong>
-                </button>
-                <button
-                  type="button"
-                  className={`booth-card ${settings.orientation === 'landscape' ? 'is-active' : ''}`}
-                  onClick={() => pickOrientation('landscape')}
-                >
-                  <strong>橫向</strong>
-                </button>
-              </div>
+              {isBadge ? null : (
+                <>
+                  <h2>方向</h2>
+                  <div className="booth-cards">
+                    <button
+                      type="button"
+                      className={`booth-card ${settings.orientation === 'portrait' ? 'is-active' : ''}`}
+                      onClick={() => pickOrientation('portrait')}
+                    >
+                      <strong>直向</strong>
+                    </button>
+                    <button
+                      type="button"
+                      className={`booth-card ${settings.orientation === 'landscape' ? 'is-active' : ''}`}
+                      onClick={() => pickOrientation('landscape')}
+                    >
+                      <strong>橫向</strong>
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -758,7 +893,107 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
             </>
           )}
 
-          {phase === 'layout' && (
+          {phase === 'layout' && isBadge && (
+            <>
+              <h2>名牌布局</h2>
+              <div className="badge-zones">
+                {(
+                  [
+                    ['top', '上方小字資訊'],
+                    ['mid', '姓名'],
+                    ['bot', '下方小字資訊'],
+                  ] as const
+                ).map(([zone, label]) => {
+                  const style = badgeZones[zone]
+                  return (
+                    <section key={zone} className={`badge-zone ${style.on ? '' : 'is-off'}`}>
+                      <div className="badge-zone-head">
+                        <strong>{label}</strong>
+                        <button
+                          type="button"
+                          className={`badge-zone-toggle ${style.on ? 'is-on' : ''}`}
+                          onClick={() =>
+                            setBadgeZones((cur) => ({ ...cur, [zone]: { ...cur[zone], on: !cur[zone].on } }))
+                          }
+                        >
+                          {style.on ? '已開啟' : '已關閉'}
+                        </button>
+                      </div>
+                      <div className="seg booth-align-seg">
+                        {(
+                          [
+                            ['left', '靠左'],
+                            ['center', '置中'],
+                            ['right', '靠右'],
+                          ] as const
+                        ).map(([align, alignLabel]) => (
+                          <button
+                            key={align}
+                            type="button"
+                            className={style.align === align ? 'is-active' : ''}
+                            onClick={() =>
+                              setBadgeZones((cur) => ({ ...cur, [zone]: { ...cur[zone], align } }))
+                            }
+                          >
+                            {alignLabel}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="badge-zone-style">
+                        <button
+                          type="button"
+                          className={`badge-zone-bold ${style.bold ? 'is-on' : ''}`}
+                          onClick={() =>
+                            setBadgeZones((cur) => ({ ...cur, [zone]: { ...cur[zone], bold: !cur[zone].bold } }))
+                          }
+                        >
+                          {style.bold ? '已加粗' : '加粗'}
+                        </button>
+                        <label className="badge-zone-size">
+                          <input
+                            type="range"
+                            min={40}
+                            max={200}
+                            step={10}
+                            value={style.sizePct}
+                            aria-label={`${label}文字大小`}
+                            onChange={(e) =>
+                              setBadgeZones((cur) => ({
+                                ...cur,
+                                [zone]: { ...cur[zone], sizePct: Number(e.target.value) },
+                              }))
+                            }
+                          />
+                          <span>{style.sizePct}%</span>
+                        </label>
+                      </div>
+                      <div className="badge-zone-fields">
+                        <select
+                          className="badge-zone-select"
+                          aria-label={`${label}內容`}
+                          value={badgePick[zone] ?? ''}
+                          onChange={(e) => {
+                            if (e.target.value === '__add__') setBadgeDraft({ zone, text: '' })
+                            else pickBadgeContent(zone, e.target.value)
+                          }}
+                        >
+                          <option value="">無</option>
+                          {settings.items.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {itemBoothLabel(item, sample)}
+                            </option>
+                          ))}
+                          <option value="__add__">加入新內容</option>
+                        </select>
+                      </div>
+                    </section>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {phase === 'layout' && !isBadge && (
             <>
               <h2>選擇布局</h2>
               {layouts.length === 0 ? (
@@ -996,15 +1231,17 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         </section>
 
         <aside className="booth-preview">
-          <p className="booth-step-label">列印預覽</p>
+          <p className="booth-step-label">{isBadge ? '平面預覽' : '列印預覽'}</p>
           <div className="booth-preview-stage" ref={stageRef}>
-            <StandPreview
-              settings={settings}
-              student={sample}
-              movable={false}
-              highlightIds={previewHighlightIds}
-              hotGhost={hoverGhost}
-            />
+            {isBadge ? null : (
+              <StandPreview
+                settings={settings}
+                student={sample}
+                movable={false}
+                highlightIds={previewHighlightIds}
+                hotGhost={hoverGhost}
+              />
+            )}
             <div
               className="pages-preview-frame"
               style={{
@@ -1024,8 +1261,9 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                 <div className="paper-stage-inner has-guide" style={{ width: '100%', height: '100%' }}>
                   <div className="paper-guide" aria-hidden>
                     <span className="paper-guide-label">
-                      {paperSize} {settings.orientation === 'portrait' ? '直向' : '橫向'} · {guide.widthMm}×
-                      {guide.heightMm} mm
+                      {isBadge
+                        ? `${BADGE_PRESETS[badgeSize].label} ${settings.orientation === 'portrait' ? '直向' : '橫向'} · ${guide.widthMm}×${guide.heightMm} mm`
+                        : `${paperSize} ${settings.orientation === 'portrait' ? '直向' : '橫向'} · ${guide.widthMm}×${guide.heightMm} mm`}
                     </span>
                   </div>
                   <div className="paper-card-slot">
@@ -1044,7 +1282,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         </aside>
       </div>
 
-      <PrintPreview settings={settings} rows={rows} imposition={printLayout} />
+      <PrintPreview settings={settings} rows={rows} imposition={printLayout} sheetSize={sheetSize} />
       {showPages && (
         <PagesPreview
           settings={settings}
@@ -1052,10 +1290,44 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
           title={title}
           imposition={printLayout}
           onImpositionChange={setPrintLayout}
+          sheetSize={sheetSize}
+          onSheetSizeChange={setSheetSize}
           onClose={() => setShowPages(false)}
           onPrint={() => window.print()}
         />
       )}
+      {badgeDraft ? (
+        <div className="seat-notice" role="dialog" aria-modal="true" aria-labelledby="badge-add-title">
+          <form
+            className="seat-notice-card"
+            onSubmit={(e) => {
+              e.preventDefault()
+              addBadgeContent(badgeDraft.zone, badgeDraft.text)
+            }}
+          >
+            <h3 id="badge-add-title">加入新內容</h3>
+            <input
+              className="badge-add-input"
+              aria-label="新內容"
+              value={badgeDraft.text}
+              autoFocus
+              placeholder="輸入新內容"
+              onChange={(e) => setBadgeDraft({ zone: badgeDraft.zone, text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setBadgeDraft(null)
+              }}
+            />
+            <div className="seat-notice-actions">
+              <button type="button" className="btn" onClick={() => setBadgeDraft(null)}>
+                取消
+              </button>
+              <button type="submit" className="btn primary">
+                加入
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   )
 }

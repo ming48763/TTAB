@@ -11,7 +11,7 @@ import {
   buildLayoutFromConfirm,
   buildMappingsWithExtras,
 } from '../lib/buildLayout'
-import { applyCardPaperSize } from '../lib/paper'
+import { applyBadgeSize, applyCardPaperSize } from '../lib/paper'
 import type {
   AppStep,
   ColumnMapping,
@@ -39,11 +39,16 @@ interface Props {
 }
 
 function familyTitle(family: PlateToolFamily) {
-  return family === 'badge' ? '名牌神器' : '桌牌製作神器'
+  return family === 'badge' ? '名牌製作神器' : '桌牌製作神器'
 }
 
 function familyModes(family: PlateToolFamily): PlateMode[] {
-  return family === 'badge' ? ['badge-single', 'badge-double'] : ['desk']
+  return family === 'badge' ? ['badge-single'] : ['desk']
+}
+
+function freshSettings(family: PlateToolFamily, patch?: Partial<LayoutSettings>): LayoutSettings {
+  const base = { ...familyBase(family), ...patch }
+  return family === 'badge' ? applyBadgeSize(base, base.badgeSize ?? 'conf') : applyCardPaperSize(base, 'A4')
 }
 
 function familyBase(family: PlateToolFamily): LayoutSettings {
@@ -67,9 +72,7 @@ export function PlateNameTool({ family, onHome }: Props) {
   const [rawRows, setRawRows] = useState<StudentRow[]>([])
   const [mappings, setMappings] = useState<ColumnMapping[]>([])
   const [extras, setExtras] = useState<ExtraLabelOptions>(defaultExtras)
-  const [settings, setSettings] = useState<LayoutSettings>(() =>
-    applyCardPaperSize(familyBase(family), 'A4'),
-  )
+  const [settings, setSettings] = useState<LayoutSettings>(() => freshSettings(family))
   const [boothSeed, setBoothSeed] = useState<LayoutSettings | null>(null)
   const [boothSession, setBoothSession] = useState(0)
   const [editRows, setEditRows] = useState<StudentRow[]>([])
@@ -83,7 +86,7 @@ export function PlateNameTool({ family, onHome }: Props) {
     setRawRows([])
     setMappings([])
     setExtras(defaultExtras())
-    setSettings(applyCardPaperSize(familyBase(family), 'A4'))
+    setSettings(freshSettings(family))
     setBoothSeed(null)
     setEditRows([])
     setEditMappings([])
@@ -93,15 +96,11 @@ export function PlateNameTool({ family, onHome }: Props) {
     const nextMappings = buildMappingsWithExtras(mappings, extras)
     const nextRows = applySequenceToRows(rawRows, extras)
     const built = buildLayoutFromConfirm(mappings, extras, rawRows[0])
-    const next: LayoutSettings = applyCardPaperSize(
-      {
-        ...familyBase(family),
-        items: built.items,
-        pendingCenterIds: built.pendingCenterIds,
-        cardDecor: built.cardDecor,
-      },
-      'A4',
-    )
+    const next: LayoutSettings = freshSettings(family, {
+      items: built.items,
+      pendingCenterIds: built.pendingCenterIds,
+      cardDecor: built.cardDecor,
+    })
     setEditMappings(nextMappings)
     setEditRows(nextRows)
     setSettings(next)
@@ -114,7 +113,7 @@ export function PlateNameTool({ family, onHome }: Props) {
     step === 'choose' || step === 'booth' ? 'is-current' : step === 'edit' ? 'is-done' : ''
 
   return (
-    <div className={`app step-${step}${family === 'desk' ? ' is-desk' : ''}`}>
+    <div className={`app step-${step} is-desk`}>
       {showIntroChrome && (
         <header className="site-header no-print">
           <div className="brand">
@@ -155,7 +154,7 @@ export function PlateNameTool({ family, onHome }: Props) {
             onChangeExtras={setExtras}
             onBack={resetToUpload}
             onConfirm={handleConfirm}
-            showExtrasNote={family !== 'desk'}
+            showExtrasNote={false}
           />
         )}
 
@@ -201,12 +200,6 @@ export function PlateNameTool({ family, onHome }: Props) {
           />
         )}
       </main>
-
-      {showIntroChrome && family !== 'desk' && (
-        <footer className="site-footer no-print">
-          <p>列印建議：選「實際大小」、關閉頁首頁尾。名牌可用較厚貼紙或卡片紙。</p>
-        </footer>
-      )}
     </div>
   )
 }

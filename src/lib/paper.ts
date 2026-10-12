@@ -1,10 +1,50 @@
-import type { LayoutItem, LayoutSettings, PageOrientation, PaperSizeId, PlateMode } from '../types'
+import type { BadgeSizeId, LayoutItem, LayoutSettings, PageOrientation, PaperSizeId, PlateMode } from '../types'
 
 /** ISO / JIS portrait short×long in mm */
 export const PAPER_PRESETS: Record<PaperSizeId, { label: string; shortMm: number; longMm: number }> = {
   A3: { label: 'A3', shortMm: 297, longMm: 420 },
   A4: { label: 'A4', shortMm: 210, longMm: 297 },
   B5: { label: 'B5', shortMm: 176, longMm: 250 },
+}
+
+/** Width × height as specified for each badge format. */
+export const BADGE_PRESETS: Record<
+  BadgeSizeId,
+  { label: string; inch: string; widthMm: number; heightMm: number }
+> = {
+  conf: { label: '標準會議名牌', inch: '4" × 3"', widthMm: 102, heightMm: 76 },
+  expo: { label: '大型展覽名牌', inch: '4" × 6"', widthMm: 102, heightMm: 152 },
+  mini: { label: '小型名牌', inch: '2.4" × 3.9"', widthMm: 62, heightMm: 100 },
+}
+
+export const BADGE_IDS = Object.keys(BADGE_PRESETS) as BadgeSizeId[]
+
+export function badgeNaturalOrientation(size: BadgeSizeId): PageOrientation {
+  const preset = BADGE_PRESETS[size]
+  return preset.heightMm >= preset.widthMm ? 'portrait' : 'landscape'
+}
+
+export function badgeFaceMm(size: BadgeSizeId, orientation: PageOrientation) {
+  const preset = BADGE_PRESETS[size]
+  const natural = badgeNaturalOrientation(size)
+  if (orientation === natural) return { widthMm: preset.widthMm, faceHeightMm: preset.heightMm }
+  return { widthMm: preset.heightMm, faceHeightMm: preset.widthMm }
+}
+
+export function applyBadgeSize(
+  settings: LayoutSettings,
+  size: BadgeSizeId,
+  orientation: PageOrientation = badgeNaturalOrientation(size),
+): LayoutSettings {
+  const face = badgeFaceMm(size, orientation)
+  return {
+    ...settings,
+    badgeSize: size,
+    orientation,
+    showFoldLine: false,
+    widthMm: face.widthMm,
+    faceHeightMm: face.faceHeightMm,
+  }
 }
 
 export function paperDimensions(
@@ -46,6 +86,9 @@ export function applyOrientation(
   settings: LayoutSettings,
   orientation: PageOrientation,
 ): LayoutSettings {
+  if (settings.mode === 'badge-single') {
+    return applyBadgeSize(settings, settings.badgeSize ?? 'conf', orientation)
+  }
   const size: PaperSizeId = settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
   const next = applyCardPaperSize(settings, size, orientation)
   if (settings.paperGuide === 'none') next.paperGuide = 'none'

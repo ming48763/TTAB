@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import type {
+  BadgeSizeId,
   ColumnMapping,
   LayoutItem,
   LayoutSettings,
@@ -20,8 +21,11 @@ import { CARD_DECOR_CHOICES, CARD_DECOR_COLORS, DEFAULT_CARD_DECOR, FONT_CHOICES
 import {
   alignItems,
   measureAlignUnits,
+  applyBadgeSize,
   applyCardPaperSize,
   applyOrientation,
+  BADGE_IDS,
+  BADGE_PRESETS,
   groupItems,
   PAPER_PRESETS,
   paperDimensions,
@@ -96,6 +100,7 @@ export function LayoutEditor({
   const [freshId, setFreshId] = useState<string | null>(null)
   const [showPages, setShowPages] = useState(false)
   const [printLayout, setPrintLayout] = useState<PrintImposition>('1x1')
+  const [sheetSize, setSheetSize] = useState<PaperSizeId>('A4')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const pastRef = useRef<LayoutSettings[]>([])
@@ -408,9 +413,13 @@ export function LayoutEditor({
     [selectedIds, freshId, handleSelect, commit, canGroup, canUngroup],
   )
 
+  const isBadge = settings.mode === 'badge-single'
+  const badgeSize: BadgeSizeId = settings.badgeSize ?? 'conf'
   const paperSize: PaperSizeId =
     settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
-  const guide = paperDimensions(paperSize, settings.orientation)
+  const guide = isBadge
+    ? { widthMm: settings.widthMm, heightMm: settings.faceHeightMm }
+    : paperDimensions(paperSize, settings.orientation)
   const stageRef = useRef<HTMLDivElement>(null)
   const paperRef = useRef<HTMLDivElement>(null)
   const panDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
@@ -418,7 +427,7 @@ export function LayoutEditor({
   const [panning, setPanning] = useState(false)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [fit, setFit] = useState({ scale: 1, w: 0, h: 0 })
-  const fitMode = portrait && settings.mode === 'desk'
+  const fitMode = portrait && (settings.mode === 'desk' || isBadge)
   const fitRef = useRef(fit)
   fitRef.current = fit
 
@@ -537,21 +546,33 @@ export function LayoutEditor({
         )}
 
         <div className="toolbar-group">
-          <span className="toolbar-label">紙張</span>
-          <HoverMenu label="紙張尺寸" value={paperSize}>
-            {PAPER_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={paperSize === id ? 'is-active' : ''}
-                onClick={() => commit(applyCardPaperSize(settings, id))}
-              >
-                {id}
-              </button>
-            ))}
+          <span className="toolbar-label">{isBadge ? '名牌' : '紙張'}</span>
+          <HoverMenu label={isBadge ? '名牌尺寸' : '紙張尺寸'} value={isBadge ? BADGE_PRESETS[badgeSize].inch : paperSize}>
+            {isBadge
+              ? BADGE_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={badgeSize === id ? 'is-active' : ''}
+                    onClick={() => commit(applyBadgeSize(settings, id))}
+                  >
+                    {BADGE_PRESETS[id].label}
+                  </button>
+                ))
+              : PAPER_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={paperSize === id ? 'is-active' : ''}
+                    onClick={() => commit(applyCardPaperSize(settings, id))}
+                  >
+                    {id}
+                  </button>
+                ))}
           </HoverMenu>
         </div>
 
+        {isBadge ? null : (
         <div className="toolbar-group">
           <span className="toolbar-label">方向</span>
           <div className="seg">
@@ -571,6 +592,7 @@ export function LayoutEditor({
             </button>
           </div>
         </div>
+        )}
         </div>
 
         <div className="toolbar-row">
@@ -778,7 +800,7 @@ export function LayoutEditor({
           onPointerUp={onStagePointerUp}
           onPointerCancel={onStagePointerUp}
         >
-          <StandPreview settings={settings} student={sample} />
+          {isBadge ? null : <StandPreview settings={settings} student={sample} />}
           <div
             className="paper-pan"
             style={
@@ -809,7 +831,7 @@ export function LayoutEditor({
             >
                 <div className="paper-guide" aria-hidden>
                   <span className="paper-guide-label">
-                    {paperSize}{' '}
+                    {isBadge ? BADGE_PRESETS[badgeSize].label : paperSize}{' '}
                     {settings.orientation === 'portrait' ? '直向' : '橫向'} · {guide.widthMm}×
                     {guide.heightMm} mm
                   </span>
@@ -976,7 +998,7 @@ export function LayoutEditor({
         </div>
       )}
 
-      <PrintPreview settings={settings} rows={rows} imposition={printLayout} />
+      <PrintPreview settings={settings} rows={rows} imposition={printLayout} sheetSize={sheetSize} />
       {showPages && (
         <PagesPreview
           settings={settings}
@@ -984,6 +1006,8 @@ export function LayoutEditor({
           title={title}
           imposition={printLayout}
           onImpositionChange={setPrintLayout}
+          sheetSize={sheetSize}
+          onSheetSizeChange={setSheetSize}
           onClose={() => setShowPages(false)}
           onPrint={() => window.print()}
         />

@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fitPreviewRow } from '../lib/fitPreviewChrome'
-import { chunk, resolvePrintPaper } from '../lib/layout'
+import { bestBadgePack, chunk, resolvePrintPaper } from '../lib/layout'
 import {
   impositionGrid,
   impositionHint,
   impositionSplitLabel,
   type PrintImposition,
 } from '../lib/printLayout'
-import type { LayoutSettings, StudentRow } from '../types'
+import { PAPER_PRESETS, totalCardHeightMm, totalCardWidthMm } from '../lib/paper'
+import type { LayoutSettings, PaperSizeId, StudentRow } from '../types'
 import { PrintSheet } from './PrintSheet'
 
 const LAYOUTS: PrintImposition[] = ['1x1', '2x1', '2x2']
+const PAPER_IDS = Object.keys(PAPER_PRESETS) as PaperSizeId[]
 
 interface Props {
   settings: LayoutSettings
@@ -18,6 +20,8 @@ interface Props {
   title: string
   imposition: PrintImposition
   onImpositionChange: (next: PrintImposition) => void
+  sheetSize?: PaperSizeId
+  onSheetSizeChange?: (next: PaperSizeId) => void
   onClose: () => void
   onPrint: () => void
 }
@@ -28,11 +32,30 @@ export function PagesPreview({
   title,
   imposition,
   onImpositionChange,
+  sheetSize = 'A4',
+  onSheetSizeChange,
   onClose,
   onPrint,
 }: Props) {
-  const paper = resolvePrintPaper(settings, imposition)
-  const grid = impositionGrid(imposition, paper.paperWidthMm, paper.paperHeightMm)
+  const isBadge = settings.mode === 'badge-single'
+  const pack = isBadge
+    ? bestBadgePack(
+        totalCardWidthMm(settings.mode, settings.widthMm),
+        totalCardHeightMm(settings.mode, settings.faceHeightMm),
+        sheetSize,
+        settings.gapMm,
+        settings.marginMm,
+      )
+    : null
+  const paper = pack
+    ? {
+        size: pack.size,
+        orientation: pack.orientation,
+        paperWidthMm: pack.paperWidthMm,
+        paperHeightMm: pack.paperHeightMm,
+      }
+    : resolvePrintPaper(settings, imposition)
+  const grid = pack ? { cols: pack.cols, rows: pack.rows } : impositionGrid(imposition, paper.paperWidthMm, paper.paperHeightMm)
   const perPage = Math.max(1, grid.cols * grid.rows)
   const pages = useMemo(() => chunk(rows, perPage), [rows, perPage])
   const pageCount = Math.max(1, pages.length)
@@ -51,7 +74,7 @@ export function PagesPreview({
 
   useEffect(() => {
     setPage(0)
-  }, [imposition])
+  }, [imposition, sheetSize, settings.widthMm, settings.faceHeightMm])
 
   useLayoutEffect(() => {
     function fitScale() {
@@ -172,7 +195,7 @@ export function PagesPreview({
           if (i > 0) pdf.addPage([w, h], landscape ? 'landscape' : 'portrait')
           pdf.addImage(img, 'JPEG', 0, 0, w, h)
         }
-        const layoutLabel = imposition.replace('x', 'X')
+        const layoutLabel = isBadge ? `${grid.cols}x${grid.rows}` : imposition.replace('x', 'X')
         pdf.save(`${title}_${paper.size}_${dirLabel}_${layoutLabel}.pdf`)
       } finally {
         if (!cancelled) setPdfBusy(false)
@@ -182,7 +205,7 @@ export function PagesPreview({
     return () => {
       cancelled = true
     }
-  }, [pdfBusy, title, dirLabel, paper.size, paper.paperHeightMm, paper.paperWidthMm, imposition])
+  }, [pdfBusy, title, dirLabel, paper.size, paper.paperHeightMm, paper.paperWidthMm, imposition, isBadge, grid.cols, grid.rows])
 
   return (
     <div
@@ -195,6 +218,27 @@ export function PagesPreview({
       <header className="pages-preview-bar">
         <div className="preview-fit-row" ref={barFitRef}>
         <div className="pages-preview-layout">
+          {isBadge ? (
+            <>
+              <span className="toolbar-label">選擇紙張大小</span>
+              <div className="seg">
+                {PAPER_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={sheetSize === id ? 'is-active' : ''}
+                    onClick={() => onSheetSizeChange?.(id)}
+                  >
+                    {id}
+                  </button>
+                ))}
+              </div>
+              <span className="pages-preview-split">
+                {paper.size} {dirLabel} · {grid.cols}×{grid.rows}
+              </span>
+            </>
+          ) : (
+            <>
           <span className="toolbar-label">布局</span>
           <div className="seg">
             {LAYOUTS.map((id) => (
@@ -218,6 +262,8 @@ export function PagesPreview({
             ))}
           </div>
           <span className="pages-preview-split">{impositionSplitLabel(imposition, paper.size)}</span>
+            </>
+          )}
         </div>
         <div className="pages-preview-actions">
           <button type="button" className="btn" onClick={onClose}>
@@ -268,7 +314,7 @@ export function PagesPreview({
               transform: `scale(${scale})`,
             }}
           >
-            <PrintSheet settings={settings} students={current} imposition={imposition} />
+            <PrintSheet settings={settings} students={current} imposition={imposition} sheetSize={sheetSize} />
           </div>
         </div>
       </div>
@@ -276,7 +322,7 @@ export function PagesPreview({
       {pdfBusy && (
         <div className="pages-pdf-source" ref={pdfSourceRef} aria-hidden>
           {(pages.length ? pages : [[]]).map((pageRows, pageIndex) => (
-            <PrintSheet key={pageIndex} settings={settings} students={pageRows} imposition={imposition} />
+            <PrintSheet key={pageIndex} settings={settings} students={pageRows} imposition={imposition} sheetSize={sheetSize} />
           ))}
         </div>
       )}

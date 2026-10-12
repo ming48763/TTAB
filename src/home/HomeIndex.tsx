@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { formatCount, type UsageStats } from '../lib/usageStats'
 import { HOME_TOOLS, type ToolId } from './tools'
@@ -11,6 +11,20 @@ interface Props {
 
 export function HomeIndex({ onOpenTool, stats }: Props) {
   const headerRef = useRef<HTMLElement>(null)
+  const [line, setLine] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/home-line')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { line?: string } | null) => {
+        if (!cancelled && data?.line) setLine(data.line)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const header = headerRef.current
@@ -42,7 +56,7 @@ export function HomeIndex({ onOpenTool, stats }: Props) {
           <BrandMark />
           <div>
             <h1>Teacher, Take A Break!</h1>
-            <p>給自己多一點休息的時間</p>
+            {line ? <p>{line}</p> : null}
           </div>
         </div>
       </header>

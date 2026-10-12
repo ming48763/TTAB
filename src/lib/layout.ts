@@ -1,6 +1,6 @@
 import { paperDimensions } from './paper'
 import type { PrintImposition } from './printLayout'
-import type { LayoutSettings, PaperSizeId } from '../types'
+import type { LayoutSettings, PageOrientation, PaperSizeId } from '../types'
 
 export interface PaperLayout {
   paperWidthMm: number
@@ -60,4 +60,71 @@ export function chunk<T>(arr: T[], size: number): T[][] {
     out.push(arr.slice(i, i + size))
   }
   return out
+}
+
+export interface BadgePack {
+  size: PaperSizeId
+  orientation: PageOrientation
+  paperWidthMm: number
+  paperHeightMm: number
+  cols: number
+  rows: number
+  marginMm: number
+  gapMm: number
+}
+
+function badgeCellCount(
+  paperWidthMm: number,
+  paperHeightMm: number,
+  cardWidthMm: number,
+  cardHeightMm: number,
+  gapMm: number,
+  marginMm: number,
+) {
+  const usableW = paperWidthMm - marginMm * 2
+  const usableH = paperHeightMm - marginMm * 2
+  if (usableW < cardWidthMm || usableH < cardHeightMm) return { cols: 0, rows: 0 }
+  return {
+    cols: Math.floor((usableW + gapMm) / (cardWidthMm + gapMm)),
+    rows: Math.floor((usableH + gapMm) / (cardHeightMm + gapMm)),
+  }
+}
+
+/** Pick the paper orientation that fits the most badges at their real size. */
+export function bestBadgePack(
+  cardWidthMm: number,
+  cardHeightMm: number,
+  size: PaperSizeId,
+  gapMm: number,
+  marginMm: number,
+): BadgePack {
+  const options = (['portrait', 'landscape'] as const).map((orientation) => {
+    const paper = paperDimensions(size, orientation)
+    const cells = badgeCellCount(paper.widthMm, paper.heightMm, cardWidthMm, cardHeightMm, gapMm, marginMm)
+    return {
+      size,
+      orientation,
+      paperWidthMm: paper.widthMm,
+      paperHeightMm: paper.heightMm,
+      cols: cells.cols,
+      rows: cells.rows,
+      marginMm,
+      gapMm,
+      count: cells.cols * cells.rows,
+    }
+  })
+  options.sort((a, b) => b.count - a.count || a.paperWidthMm * a.paperHeightMm - b.paperWidthMm * b.paperHeightMm)
+  const best = options[0]
+  if (best.count > 0) return best
+  const paper = paperDimensions(size, 'portrait')
+  return {
+    size,
+    orientation: 'portrait',
+    paperWidthMm: paper.widthMm,
+    paperHeightMm: paper.heightMm,
+    cols: 1,
+    rows: 1,
+    marginMm,
+    gapMm,
+  }
 }

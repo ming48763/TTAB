@@ -1,6 +1,13 @@
-import { useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { BrandMark } from './BrandMark'
 import { studentCardLines, studentKey } from '../lib/seating'
+import {
+  buildSweepPages,
+  exportSweepExcel,
+  SWEEP_SHEET_SUFFIX,
+  sweepFileBase,
+  sweepSheetTitle,
+} from '../lib/sweepExport'
 import type { ColumnMapping, StudentRow } from '../types'
 import { uid } from '../types'
 
@@ -24,9 +31,36 @@ const FOLDER_MIME = 'application/x-ttab-sweep-folder'
 const TASK_PREFIX = 'sweep-task:'
 const FOLDER_PREFIX = 'sweep-folder:'
 
-const FLOOR_SPOTS = ['講台', '第幾排', '前後', '走廊', '閱讀角'] as const
+const FLOOR_SPOTS = ['講台', '排數', '前後', '走廊', '閱讀角'] as const
 const TRASH_KINDS = ['一般', '回收', '紙類', '塑膠'] as const
 const WINDOW_SPOTS = ['左右', '前後', '窗台', '落地窗'] as const
+const OTHER_SPOTS = ['整理掃具', '黑板', '櫃子整理', '餐桌整理'] as const
+const CLASSROOM_TASKS = ['掃地', '拖地', '倒垃圾', '擦桌子', '窗戶'] as const
+const HALL_TASKS = ['掃地', '拖地', '倒垃圾'] as const
+const RESTROOM_TASKS = ['男廁', '女廁', '洗手台', '地板', '倒垃圾'] as const
+const YARD_TASKS = ['掃地', '倒垃圾', '撿垃圾'] as const
+const DUMP_TASKS = ['鑰匙保管', '協助分類'] as const
+
+interface OuterPlace {
+  name: string
+  tasks: readonly string[]
+}
+
+const INDOOR_PLACES: OuterPlace[] = [
+  { name: '科任教室', tasks: CLASSROOM_TASKS },
+  { name: '辦公室', tasks: CLASSROOM_TASKS },
+  { name: '圖書館', tasks: CLASSROOM_TASKS },
+  { name: '活動中心', tasks: HALL_TASKS },
+  { name: '廁所', tasks: RESTROOM_TASKS },
+]
+
+const OUTDOOR_PLACES: OuterPlace[] = [
+  { name: '操場', tasks: YARD_TASKS },
+  { name: '籃球場', tasks: YARD_TASKS },
+  { name: '草皮', tasks: YARD_TASKS },
+  { name: '遊樂區', tasks: YARD_TASKS },
+  { name: '垃圾場', tasks: DUMP_TASKS },
+]
 
 interface TaskGroup {
   id: string
@@ -34,12 +68,15 @@ interface TaskGroup {
   items: readonly string[]
 }
 
-const TASK_GROUPS: TaskGroup[] = [
+const INNER_TASK_GROUPS: TaskGroup[] = [
   { id: 'sweep', label: '掃地', items: FLOOR_SPOTS },
   { id: 'mop', label: '拖地', items: FLOOR_SPOTS },
   { id: 'trash', label: '倒垃圾', items: TRASH_KINDS },
   { id: 'window', label: '窗戶', items: WINDOW_SPOTS },
+  { id: 'other', label: '其他', items: OTHER_SPOTS },
 ]
+
+const UNGROUPED_TITLE = '【未分組】'
 
 function taskTitle(groupLabel: string, item: string) {
   return `${groupLabel}·${item}`
@@ -47,8 +84,64 @@ function taskTitle(groupLabel: string, item: string) {
 
 const DUP_SUFFIX = /(（重複）|\(重複\))(\d*)$/
 
+function nextGroupRowTitle(group: string, folders: SweepFolder[]) {
+  const used = new Set<number>()
+  const pattern = new RegExp(`^${group}·第(\\d+)排$`)
+  for (const folder of folders) {
+    const match = baseTaskTitle(folder.title).match(pattern)
+    if (match) used.add(Number(match[1]))
+  }
+  let n = 1
+  while (used.has(n)) n += 1
+  return `${group}·第${n}排`
+}
+
 function baseTaskTitle(title: string) {
   return title.replace(DUP_SUFFIX, '').trim()
+}
+
+const INNER_TONE: Record<string, string> = {
+  掃地: 'green',
+  拖地: 'red',
+  倒垃圾: 'blue',
+  窗戶: 'white',
+  其他: 'purple',
+  自定義: 'purple',
+}
+
+const OUTER_PLACE_TONE: Record<string, string> = {
+  科任教室: 'green',
+  辦公室: 'red',
+  圖書館: 'blue',
+  活動中心: 'white',
+  廁所: 'purple',
+}
+
+const OUTDOOR_PLACE_NAMES = new Set(OUTDOOR_PLACES.map((place) => place.name))
+
+function folderTone(title: string, home: SweepFolderHome) {
+  if (home === 'pool') return null
+  const head = baseTaskTitle(title).split('·')[0]
+  if (home === 'inner') return INNER_TONE[head] ?? null
+  if (OUTDOOR_PLACE_NAMES.has(head)) return 'brown'
+  return OUTER_PLACE_TONE[head] ?? null
+}
+
+function droppedTitles(title: string, folders: SweepFolder[]) {
+  const base = baseTaskTitle(title)
+  const mark = base.lastIndexOf('·')
+  if (mark > 0) {
+    const group = base.slice(0, mark)
+    const item = base.slice(mark + 1)
+    if ((group === '掃地' || group === '拖地') && item === '排數') return [nextGroupRowTitle(group, folders)]
+    if (item === '前後') return [`${group}·前`, `${group}·後`]
+    if (item === '左右') return [`${group}·左`, `${group}·右`]
+  }
+  return [base]
+}
+
+function dropEmptyUngrouped(folders: SweepFolder[]) {
+  return folders.filter((folder) => folder.title !== UNGROUPED_TITLE || folder.members.length > 0)
 }
 
 function hasSameTask(folders: SweepFolder[], title: string) {
@@ -109,7 +202,11 @@ function allTaken(assignments: SweepAssignments) {
 function stripStudentEverywhere(a: SweepAssignments, student: string): SweepAssignments {
   const clean = (folders: SweepFolder[]) =>
     folders.map((f) => ({ ...f, members: f.members.filter((m) => m !== student) }))
-  return { pool: clean(a.pool), inner: clean(a.inner), outer: clean(a.outer) }
+  return {
+    pool: clean(a.pool),
+    inner: dropEmptyUngrouped(clean(a.inner)),
+    outer: dropEmptyUngrouped(clean(a.outer)),
+  }
 }
 
 function findFolderHome(a: SweepAssignments, folderId: string): SweepFolderHome | null {
@@ -145,13 +242,22 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
   const [hotTarget, setHotTarget] = useState<string | null>(null)
   const [dutyTab, setDutyTab] = useState<SweepDutyTab>('inner')
   const [poolTab, setPoolTab] = useState<'students' | 'tasks'>('students')
-  const [customTitle, setCustomTitle] = useState('')
+  const [placeTab, setPlaceTab] = useState<'indoor' | 'outdoor'>('indoor')
+  const [indoorPick, setIndoorPick] = useState(INDOOR_PLACES[0].name)
+  const [outdoorPick, setOutdoorPick] = useState(OUTDOOR_PLACES[0].name)
   const [confirmClear, setConfirmClear] = useState(false)
   const [needModule, setNeedModule] = useState(false)
   const [randomOpen, setRandomOpen] = useState(false)
   const [innerCount, setInnerCount] = useState('0')
   const [outerCount, setOuterCount] = useState('0')
   const [randomError, setRandomError] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportPrefix, setExportPrefix] = useState('')
+  const [exportBusy, setExportBusy] = useState<'xlsx' | 'pdf' | null>(null)
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
+  const editingTitleRef = useRef<string | null>(null)
+  const [pdfJob, setPdfJob] = useState<string | null>(null)
+  const pdfHostRef = useRef<HTMLDivElement>(null)
   const [shownFields, setShownFields] = useState<string[]>(() => {
     const names = mappings.filter((m) => m.role === 'name').map((m) => m.header)
     if (names.length) return names
@@ -165,6 +271,65 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
   const dutyFolders = assignments[dutyTab]
   const dutyDupIds = duplicateFolderIds(dutyFolders)
   const poolDupIds = duplicateFolderIds(assignments.pool)
+  const outerPlaces = placeTab === 'indoor' ? INDOOR_PLACES : OUTDOOR_PLACES
+  const outerPlaceName = placeTab === 'indoor' ? indoorPick : outdoorPick
+  const outerPlace = outerPlaces.find((place) => place.name === outerPlaceName) ?? outerPlaces[0]
+  const exportTitle = sweepSheetTitle(exportPrefix)
+  const exportPages = buildSweepPages(assignments, (key) => {
+    const row = byKey.get(key)
+    if (!row) return ''
+    return studentCardLines(row, mappings, shownFields).map((line) => line.text).join(' ')
+  })
+
+  useEffect(() => {
+    if (!pdfJob) return
+    const host = pdfHostRef.current
+    if (!host) return
+    let cancelled = false
+    const run = async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))))
+      if (cancelled) return
+      try {
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+        const sheets = Array.from(host.querySelectorAll<HTMLElement>('.sweep-export-page'))
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        for (let i = 0; i < sheets.length; i += 1) {
+          if (cancelled) return
+          const canvas = await html2canvas(sheets[i], {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            logging: false,
+          })
+          const img = canvas.toDataURL('image/jpeg', 0.93)
+          if (i > 0) pdf.addPage('a4', 'portrait')
+          const pageW = 210
+          const pageH = 297
+          const imgH = (canvas.height / canvas.width) * pageW
+          if (imgH <= pageH) pdf.addImage(img, 'JPEG', 0, 0, pageW, imgH)
+          else {
+            const fit = pageH / imgH
+            pdf.addImage(img, 'JPEG', (pageW - pageW * fit) / 2, 0, pageW * fit, pageH)
+          }
+        }
+        pdf.save(`${sweepFileBase(pdfJob)}.pdf`)
+        if (!cancelled) {
+          setPdfJob(null)
+          setExportBusy(null)
+          setExportOpen(false)
+        }
+      } catch (err) {
+        console.error(err)
+        if (!cancelled) {
+          setPdfJob(null)
+          setExportBusy(null)
+        }
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [pdfJob])
 
   type Payload =
     | { kind: 'task'; value: string }
@@ -198,18 +363,16 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
   }
 
   function addFolderToDuty(title: string) {
-    const nextTitle = uniqueTaskTitle(assignments[dutyTab], title)
-    const nextFolder: SweepFolder = { id: uid('sweep'), title: nextTitle, members: [] }
+    const titles = droppedTitles(title, allFolders(assignments))
+    let duty = assignments[dutyTab]
+    for (const raw of titles) {
+      const nextTitle = uniqueTaskTitle(duty, raw)
+      duty = [...duty, { id: uid('sweep'), title: nextTitle, members: [] }]
+    }
     onAssign({
       ...assignments,
-      [dutyTab]: [...assignments[dutyTab], nextFolder],
+      [dutyTab]: duty,
     })
-  }
-
-  function addCustomFolder() {
-    const title = customTitle.trim() || '自定義'
-    addFolderToDuty(title)
-    setCustomTitle('')
   }
 
   function setFolderTitle(folderId: string, title: string) {
@@ -278,7 +441,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
         : [
             {
               id: uid('sweep'),
-              title: '【未分組】',
+              title: UNGROUPED_TITLE,
               members: people.map((row) => studentKey(row)),
             },
           ]
@@ -308,7 +471,27 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     setDragFolder(null)
   }
 
+  function beginTitleEdit(folderId: string) {
+    editingTitleRef.current = folderId
+    setEditingTitleId(folderId)
+  }
+
+  function endTitleEdit(folderId: string, next: EventTarget | null) {
+    if (next instanceof HTMLElement && next.classList.contains('sweep-folder-title')) return
+    if (editingTitleRef.current !== folderId) return
+    editingTitleRef.current = null
+    setEditingTitleId((cur) => (cur === folderId ? null : cur))
+  }
+
   function startFolderDrag(folderId: string, e: DragEvent) {
+    const active = document.activeElement
+    if (
+      editingTitleRef.current === folderId ||
+      (active instanceof HTMLInputElement && e.currentTarget.contains(active))
+    ) {
+      e.preventDefault()
+      return
+    }
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData(FOLDER_MIME, folderId)
     e.dataTransfer.setData('text/plain', `${FOLDER_PREFIX}${folderId}`)
@@ -381,11 +564,12 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     const dupSet = home === 'pool' ? poolDupIds : home === dutyTab ? dutyDupIds : duplicateFolderIds(assignments[home])
     const isDup = dupSet.has(folder.id)
 
+    const tone = folderTone(folder.title, home)
     return (
       <article
         key={folder.id}
-        className={`sweep-folder ${hotTarget === `folder:${folder.id}` ? 'is-hot' : ''} ${isDup ? 'is-dup' : ''}`}
-        draggable
+        className={`sweep-folder ${hotTarget === `folder:${folder.id}` ? 'is-hot' : ''} ${isDup ? 'is-dup' : ''} ${tone ? `is-tone-${tone}` : ''} ${editingTitleId === folder.id ? 'is-editing' : ''}`}
+        draggable={editingTitleId !== folder.id}
         onDragStart={(e) => startFolderDrag(folder.id, e)}
         onDragEnd={endDrag}
         onDragOver={(e) => {
@@ -407,7 +591,12 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             className="sweep-folder-title"
             value={folder.title}
             onChange={(e) => setFolderTitle(folder.id, e.target.value)}
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              beginTitleEdit(folder.id)
+            }}
+            onFocus={() => beginTitleEdit(folder.id)}
+            onBlur={(e) => endTitleEdit(folder.id, e.relatedTarget)}
             onClick={(e) => e.stopPropagation()}
             aria-label="資料夾標題"
           />
@@ -433,6 +622,25 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     )
   }
 
+  async function downloadExcel() {
+    if (exportBusy) return
+    setExportBusy('xlsx')
+    try {
+      await exportSweepExcel(exportPages, exportTitle)
+      setExportOpen(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setExportBusy(null)
+    }
+  }
+
+  function downloadPdf() {
+    if (exportBusy) return
+    setExportBusy('pdf')
+    setPdfJob(exportTitle)
+  }
+
   return (
     <div className="sweep-board">
       <header className="site-header no-print seat-work-head">
@@ -446,7 +654,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           <button type="button" className="btn" onClick={onBack}>
             返回欄位
           </button>
-          <button type="button" className="btn">
+          <button type="button" className="btn primary" onClick={() => setExportOpen(true)} disabled={exportBusy !== null}>
             匯出
           </button>
         </div>
@@ -539,11 +747,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           </div>
 
           <div className="sweep-folder-board" role="tabpanel">
-            {dutyFolders.length === 0 ? (
-              <p className="muted">從右側「工作模塊」拖入此區，建立掃地資料夾</p>
-            ) : (
-              dutyFolders.map((folder) => renderFolder(folder, dutyTab))
-            )}
+            {dutyFolders.map((folder) => renderFolder(folder, dutyTab))}
           </div>
         </section>
 
@@ -589,12 +793,88 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           {poolTab === 'tasks' ? (
             <div className="sweep-task-panel" role="tabpanel" aria-label="工作模塊">
               <div className="sweep-task-groups">
-                {TASK_GROUPS.map((group) => (
-                  <section key={group.id} className="sweep-task-group" aria-label={group.label}>
-                    <h3 className="sweep-task-group-title">{group.label}</h3>
+                {dutyTab === 'inner' ? (
+                  <>
+                    {INNER_TASK_GROUPS.map((group) => (
+                      <section key={group.id} className="sweep-task-group" aria-label={group.label}>
+                        <h3 className="sweep-task-group-title">{group.label}</h3>
+                        <div className="sweep-task-panel-list">
+                          {group.items.map((item) => {
+                            const title = taskTitle(group.label, item)
+                            return (
+                              <div
+                                key={title}
+                                className="sweep-task-chip"
+                                draggable
+                                onDragStart={(e) => startTaskDrag(title, e)}
+                                onDragEnd={endDrag}
+                                title={title}
+                              >
+                                {item}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </section>
+                    ))}
+                    <section className="sweep-task-group" aria-label="自定義">
+                      <h3 className="sweep-task-group-title">自定義</h3>
+                      <div className="sweep-task-panel-list">
+                        <div
+                          className="sweep-task-chip is-custom"
+                          draggable
+                          onDragStart={(e) => startTaskDrag('自定義', e)}
+                          onDragEnd={endDrag}
+                          title="拖到左側建立自訂資料夾"
+                        >
+                          自定義
+                        </div>
+                      </div>
+                    </section>
+                  </>
+                ) : (
+                  <section className="sweep-task-group sweep-outer-tasks" aria-label="外掃工作模塊">
+                    <div className="sweep-place-tabs" role="tablist" aria-label="室內或室外">
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`sweep-place-tab ${placeTab === 'indoor' ? 'is-current' : ''}`}
+                        aria-selected={placeTab === 'indoor'}
+                        onClick={() => setPlaceTab('indoor')}
+                      >
+                        室內
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`sweep-place-tab ${placeTab === 'outdoor' ? 'is-current' : ''}`}
+                        aria-selected={placeTab === 'outdoor'}
+                        onClick={() => setPlaceTab('outdoor')}
+                      >
+                        室外
+                      </button>
+                    </div>
+                    <label className="visually-hidden" htmlFor="sweep-place-select">
+                      場域
+                    </label>
+                    <select
+                      id="sweep-place-select"
+                      className="sweep-place-select"
+                      value={outerPlace.name}
+                      onChange={(e) => {
+                        if (placeTab === 'indoor') setIndoorPick(e.target.value)
+                        else setOutdoorPick(e.target.value)
+                      }}
+                    >
+                      {outerPlaces.map((place) => (
+                        <option key={place.name} value={place.name}>
+                          {place.name}
+                        </option>
+                      ))}
+                    </select>
                     <div className="sweep-task-panel-list">
-                      {group.items.map((item) => {
-                        const title = taskTitle(group.label, item)
+                      {outerPlace.tasks.map((item) => {
+                        const title = taskTitle(outerPlace.name, item)
                         return (
                           <div
                             key={title}
@@ -608,48 +888,18 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                           </div>
                         )
                       })}
+                      <div
+                        className="sweep-task-chip is-custom"
+                        draggable
+                        onDragStart={(e) => startTaskDrag('自定義', e)}
+                        onDragEnd={endDrag}
+                        title="拖到左側建立自訂資料夾"
+                      >
+                        自定義
+                      </div>
                     </div>
                   </section>
-                ))}
-                <section className="sweep-task-group" aria-label="自定義">
-                  <h3 className="sweep-task-group-title">自定義</h3>
-                  <div className="sweep-task-panel-list">
-                    {(() => {
-                      const title = customTitle.trim() || '自定義'
-                      return (
-                        <div
-                          className="sweep-task-chip is-custom"
-                          draggable
-                          onDragStart={(e) => startTaskDrag(title, e)}
-                          onDragEnd={endDrag}
-                          title="拖到左側建立自訂資料夾"
-                        >
-                          自定義
-                        </div>
-                      )
-                    })()}
-                  </div>
-                  <div className="sweep-task-custom">
-                    <label className="visually-hidden" htmlFor="sweep-custom-title">
-                      自訂工作名稱
-                    </label>
-                    <input
-                      id="sweep-custom-title"
-                      value={customTitle}
-                      onChange={(e) => setCustomTitle(e.target.value)}
-                      placeholder="輸入自訂名稱"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          addCustomFolder()
-                        }
-                      }}
-                    />
-                    <button type="button" className="btn ghost" onClick={addCustomFolder}>
-                      加入編輯區
-                    </button>
-                  </div>
-                </section>
+                )}
               </div>
             </div>
           ) : (
@@ -751,6 +1001,78 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           </div>
         </div>
       ) : null}
+
+      {exportOpen ? (
+        <div className="seat-notice" role="dialog" aria-modal="true" aria-labelledby="sweep-export-title">
+          <div className="seat-notice-card sweep-export-card">
+            <h3 id="sweep-export-title">匯出掃地工作表</h3>
+            <label className="sweep-export-field">
+              標題
+              <span className="sweep-export-name">
+                <input
+                  value={exportPrefix}
+                  onChange={(e) => setExportPrefix(e.target.value)}
+                  placeholder="例如四年三班"
+                  aria-label="標題前綴"
+                />
+                <span>{SWEEP_SHEET_SUFFIX}</span>
+              </span>
+            </label>
+            <p className="sweep-export-preview">{exportTitle}</p>
+            <div className="seat-notice-actions">
+              <button type="button" className="btn" onClick={() => setExportOpen(false)} disabled={exportBusy !== null}>
+                取消
+              </button>
+              <button type="button" className="btn" onClick={() => void downloadExcel()} disabled={exportBusy !== null}>
+                {exportBusy === 'xlsx' ? '匯出中…' : 'Excel'}
+              </button>
+              <button type="button" className="btn primary" onClick={downloadPdf} disabled={exportBusy !== null}>
+                {exportBusy === 'pdf' ? '匯出中…' : 'PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div ref={pdfHostRef} className="sweep-export-host" aria-hidden="true">
+        {pdfJob
+          ? exportPages.map((page) => (
+              <section key={page.id} className="sweep-export-page">
+                <h1>{pdfJob}</h1>
+                <h2>{page.heading}</h2>
+                <table>
+                  <colgroup>
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '40%' }} />
+                    <col style={{ width: '40%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>{page.groupLabel}</th>
+                      <th>工作</th>
+                      <th>學生</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {page.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={3}>尚未安排</td>
+                      </tr>
+                    ) : (
+                      page.rows.map((row, index) => (
+                        <tr key={`${page.id}-${index}`}>
+                          {row.groupRowSpan > 0 ? <td rowSpan={row.groupRowSpan}>{row.group}</td> : null}
+                          {row.taskRowSpan > 0 ? <td rowSpan={row.taskRowSpan}>{row.task}</td> : null}
+                          <td>{row.name}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </section>
+            ))
+          : null}
+      </div>
     </div>
   )
 }

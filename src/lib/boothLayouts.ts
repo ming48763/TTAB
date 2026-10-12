@@ -502,6 +502,89 @@ export function alignBoothGroup(
   }))
 }
 
+export type BadgeZoneId = 'top' | 'mid' | 'bot'
+
+export interface BadgeZoneStyle {
+  on: boolean
+  align: LayoutItem['align']
+  bold: boolean
+  /** 100 is the zone's default text size */
+  sizePct: number
+}
+
+export function isBadgeNameItem(item: LayoutItem): boolean {
+  if (item.id.startsWith('field-name')) return true
+  return /姓名|名字/.test(`${item.fieldHeader ?? ''} ${item.text}`)
+}
+
+/** Items before the name sit above it; later fields sit below. Images stay on top. */
+export function defaultBadgeZoneOf(items: LayoutItem[]): Record<string, BadgeZoneId> {
+  const nameIndex = items.findIndex((item) => isBadgeNameItem(item))
+  const map: Record<string, BadgeZoneId> = {}
+  items.forEach((item, index) => {
+    if (item.kind === 'image') map[item.id] = 'top'
+    else if (isBadgeNameItem(item)) map[item.id] = 'mid'
+    else if (nameIndex >= 0 && index < nameIndex) map[item.id] = 'top'
+    else map[item.id] = 'bot'
+  })
+  return map
+}
+
+export function applyBadgeZones(
+  items: LayoutItem[],
+  zoneOf: Record<string, BadgeZoneId>,
+  zones: Record<BadgeZoneId, BadgeZoneStyle>,
+  faceHeightMm: number,
+  sizePct: number,
+  fontScale: number,
+): LayoutItem[] {
+  const scale = (sizePct / 100) * fontScale
+  const small = Math.max(3.2, Math.round(7 * scale * 10) / 10)
+  const name = Math.max(5, Math.round(18 * scale * 10) / 10)
+  const zoneFor = (item: LayoutItem) => zoneOf[item.id] ?? null
+  const ordered = (['top', 'mid', 'bot'] as const).flatMap((zone) =>
+    zones[zone].on ? items.filter((item) => zoneFor(item) === zone) : [],
+  )
+  const heights = ordered.map((item) => {
+    const zone = zoneFor(item)
+    const zoneScale = zone ? (zones[zone].sizePct ?? 100) / 100 : 1
+    const base = zone === 'mid' ? name : small
+    if (item.kind === 'image') return Math.max(6, Math.round(base * 1.7 * zoneScale * 10) / 10)
+    return Math.max(2.4, Math.round(base * zoneScale * 10) / 10)
+  })
+  const content = heights.reduce((sum, height) => sum + height, 0)
+  let gapMm = Math.max(1.2, Math.round(2.6 * scale * 10) / 10)
+  const gaps = Math.max(0, ordered.length - 1)
+  const room = faceHeightMm * 0.88 - content
+  if (gaps > 0 && content + gapMm * gaps > faceHeightMm * 0.88) {
+    gapMm = Math.max(0.5, room / gaps)
+  }
+  const total = content + gapMm * gaps
+  let cursor = (faceHeightMm - total) / 2
+  const placed = new Map<string, Pick<LayoutItem, 'x' | 'y' | 'fontSizeMm' | 'align' | 'fontWeight'>>()
+  ordered.forEach((item, index) => {
+    const zone = zoneFor(item)
+    if (!zone) return
+    const height = heights[index]
+    const align = zones[zone].align
+    const x = align === 'left' ? 8 : align === 'right' ? 92 : 50
+    const y = ((cursor + height / 2) / faceHeightMm) * 100
+    cursor += height + gapMm
+    placed.set(item.id, {
+      x: Math.round(x * 10) / 10,
+      y: Math.round(y * 10) / 10,
+      fontSizeMm: height,
+      align,
+      fontWeight: zones[zone].bold ? 700 : 400,
+    })
+  })
+  return items.map((item) => {
+    const place = placed.get(item.id)
+    if (!place) return { ...item, hidden: true }
+    return { ...item, hidden: false, ...place }
+  })
+}
+
 export function itemBoothLabel(item: LayoutItem, sample: { values: Record<string, string> } | null): string {
   if (item.kind === 'image') return '圖片'
   if (item.kind === 'static') return item.text.trim() || '文字'

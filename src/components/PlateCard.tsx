@@ -146,6 +146,7 @@ export function PlateFace({
         />
       ) : null}
       {settings.items.map((item, index) => {
+        if (item.hidden) return null
         const text = resolveText(item, student)
         const selected = interactive && selectedSet.has(item.id)
         const grouped = Boolean(item.groupId)

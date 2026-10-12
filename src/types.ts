@@ -6,6 +6,8 @@ export type AppStep = 'upload' | 'map' | 'choose' | 'edit' | 'booth'
 
 export type PaperSizeId = 'A3' | 'A4' | 'B5'
 
+export type BadgeSizeId = 'conf' | 'expo' | 'mini'
+
 export type PageOrientation = 'portrait' | 'landscape'
 
 export const SEQUENCE_HEADER = '__sequence__'
@@ -125,6 +127,8 @@ export interface LayoutItem {
   fontFamily?: string
   /** Shared id when items are grouped */
   groupId?: string | null
+  /** Kept in the layout but omitted from the card (badge zones turned off) */
+  hidden?: boolean
 }
 
 export interface LayoutSettings {
@@ -146,6 +150,8 @@ export interface LayoutSettings {
   foldTone: FoldLineTone
   /** Card / page orientation for presets */
   orientation: PageOrientation
+  /** Badge format. Desk cards leave this unset. */
+  badgeSize?: BadgeSizeId
   /** Dashed photocopy paper guide behind the card */
   paperGuide: PaperSizeId | 'none'
   items: LayoutItem[]
@@ -173,8 +179,9 @@ export const DEFAULT_DESK: LayoutSettings = {
 
 export const DEFAULT_BADGE: LayoutSettings = {
   mode: 'badge-single',
-  widthMm: 90,
-  faceHeightMm: 55,
+  badgeSize: 'conf',
+  widthMm: 102,
+  faceHeightMm: 76,
   gapMm: 4,
   marginMm: 8,
   showCutMarks: true,
@@ -182,7 +189,7 @@ export const DEFAULT_BADGE: LayoutSettings = {
   foldStyle: 'dashed',
   foldWeight: 'regular',
   foldTone: 'medium',
-  orientation: 'portrait',
+  orientation: 'landscape',
   paperGuide: 'A4',
   items: [],
   cardDecor: DEFAULT_CARD_DECOR,

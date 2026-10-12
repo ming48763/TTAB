@@ -26,9 +26,10 @@ export const HOME_TOOLS: ToolTileData[] = [
   },
   {
     id: 'badges',
-    title: '名牌神器',
-    hint: '功能未完善',
-    enabled: false,
+    title: '名牌製作神器',
+    hint: '平面名牌，上傳名冊後編輯列印',
+    enabled: true,
+    toolId: 'badges',
   },
   {
     id: 'sweep',
