@@ -166,7 +166,10 @@ export function PlateNameTool({ family, onHome }: Props) {
               setBoothSession((n) => n + 1)
               setStep('booth')
             }}
-            onPickEditor={() => setStep('edit')}
+            onPickEditor={() => {
+              if (boothSeed) setSettings(cloneSettings(boothSeed))
+              setStep('edit')
+            }}
             onBack={() => setStep('map')}
           />
         )}

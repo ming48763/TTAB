@@ -23,6 +23,16 @@ import { StandPreview } from './StandPreview'
 
 type DropLoc = { zone: 'slot'; index: number } | { zone: 'idle'; index: number } | { zone: 'idle-bin' }
 
+const MM_PX = 96 / 25.4
+
+/** Fit a paper sheet inside the preview stage. Uses the stage box, not the sheet's laid-out size. */
+function fitPreviewScale(stageW: number, stageH: number, widthMm: number, heightMm: number) {
+  const w = widthMm * MM_PX
+  const h = heightMm * MM_PX
+  if (stageW < 48 || stageH < 48 || w <= 0 || h <= 0) return null
+  return Math.max(0.12, Math.min((stageW - 28) / w, (stageH - 28) / h, 1))
+}
+
 function padSlots(ids: (string | null)[], n: number): (string | null)[] {
   const next = ids.slice(0, n)
   while (next.length < n) next.push(null)
@@ -33,7 +43,14 @@ function placedIds(slots: (string | null)[]) {
   return slots.filter((id): id is string => Boolean(id))
 }
 
-type WizardStep = 'paper' | 'type' | 'layout' | 'frame' | 'size'
+type WizardStep = 'paper' | 'type' | 'layout' | 'frame'
+
+const GROUP_CENTER_LAYOUTS = new Set([
+  'two-equal-tight',
+  'two-equal-wide',
+  'two-left-big',
+  'two-right-big',
+])
 
 function measureTextCenters(face: HTMLElement, items: LayoutItem[]) {
   const fr = face.getBoundingClientRect()
@@ -105,17 +122,19 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   )
   const decor = settings.cardDecor ?? DEFAULT_CARD_DECOR
 
+  const stageNow = stageRef.current
+  const fittedNow = stageNow
+    ? fitPreviewScale(stageNow.clientWidth, stageNow.clientHeight, guide.widthMm, guide.heightMm)
+    : null
+  const viewScale = fittedNow ?? scale
+
   useLayoutEffect(() => {
     function fit() {
       const stage = stageRef.current
-      const sheet = sheetRef.current
-      if (!stage || !sheet) return
-      const w = sheet.offsetWidth
-      const h = sheet.offsetHeight
-      if (w <= 0 || h <= 0) return
-      const next = Math.min((stage.clientWidth - 28) / w, (stage.clientHeight - 28) / h, 1)
-      const clamped = Math.max(0.12, next)
-      setScale((prev) => (Math.abs(clamped - prev) > 0.004 ? clamped : prev))
+      if (!stage) return
+      const next = fitPreviewScale(stage.clientWidth, stage.clientHeight, guide.widthMm, guide.heightMm)
+      if (next == null) return
+      setScale((prev) => (Math.abs(next - prev) > 0.004 ? next : prev))
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -178,21 +197,25 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   }
 
   function pickLayout(id: string) {
+    layoutTouched.current = true
     setLayoutId(id)
     fitSlots(id, slotIds, idleIds)
   }
 
   function pickCorner(id: (typeof BOOTH_CORNER_CHOICES)[number]['id']) {
+    layoutTouched.current = true
     setCornerExtra(id)
     commitLayout(layoutId, slotIds, globalAlign, id)
   }
 
   function pickAlign(next: LayoutItem['align']) {
+    layoutTouched.current = true
     setGlobalAlign(next)
     commitLayout(layoutId, slotIds, next)
   }
 
   function applyPlacement(nextSlots: (string | null)[], nextIdle: string[]) {
+    layoutTouched.current = true
     setSlotIds(nextSlots)
     setIdleIds(nextIdle)
     commitLayout(layoutId, nextSlots, globalAlign)
@@ -318,14 +341,18 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     })
   }
 
-  const stepIndex =
-    phase === 'paper' ? 1 : phase === 'type' ? 2 : phase === 'layout' ? 3 : phase === 'frame' ? 4 : 5
+  const stepIndex = phase === 'paper' ? 1 : phase === 'type' ? 2 : phase === 'layout' ? 3 : 4
   const textItem = settings.items.find((it) => it.kind !== 'image') ?? sourceItems.current.find((it) => it.kind !== 'image')
   const textFont = textItem?.fontFamily ?? FONT_CHOICES[0].id
   const textColor = textItem?.color ?? '#0f241f'
   const [sizePct, setSizePct] = useState(100)
+  const [sizeDragEnd, setSizeDragEnd] = useState(0)
   const sizeBase = useRef<{ id: string; x: number; y: number; fontSizeMm: number }[] | null>(null)
   const sizeCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
+  const sizeCentered = useRef(0)
+  const sizeGesture = useRef(false)
+  const sizeHoldNudge = useRef(0)
+  const layoutTouched = useRef(false)
   const aligningRef = useRef(false)
   const previewBeforeBpmf = useRef<{
     items: LayoutItem[]
@@ -350,8 +377,9 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   useLayoutEffect(() => {
     let cancelled = false
     function nudge() {
-      if (cancelled || aligningRef.current || showPages || phase === 'size') return
+      if (cancelled || aligningRef.current || showPages || sizeHoldNudge.current !== 0) return
       if (boothLayoutPinsCorners(resolvedLayout())) return
+      if (phase === 'type' && !GROUP_CENTER_LAYOUTS.has(resolvedLayout())) return
       const root = sheetRef.current
       const face = root?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
       if (!face) return
@@ -371,7 +399,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       const align =
         pairOnly || phase === 'type' || phase === 'paper'
           ? 'center'
-          : phase === 'layout' || phase === 'frame' || phase === 'size'
+          : phase === 'layout' || phase === 'frame'
             ? globalAlign
             : 'center'
       const edge = 8
@@ -458,6 +486,90 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     })
   }, [settings, onChange])
 
+  useLayoutEffect(() => {
+    if (phase !== 'type' || sizeDragEnd === 0 || sizeCentered.current === sizeDragEnd) return
+    sizeCentered.current = sizeDragEnd
+    if (!GROUP_CENTER_LAYOUTS.has(layoutId)) return
+
+    if (!layoutTouched.current && layoutId === 'two-equal-tight') {
+      const placed = applyBoothLayout(
+        sourceItems.current,
+        'two-equal-tight',
+        placedIds(slotIds),
+        'center',
+        settings.widthMm,
+        sample,
+        settings.faceHeightMm,
+        sizePct / 100,
+      )
+      const scale = Math.max(sizePct, 1) / 100
+      sizeBase.current = placed.map((it) => ({
+        id: it.id,
+        x: it.x,
+        y: it.y,
+        fontSizeMm: Math.round((it.fontSizeMm / scale) * 10) / 10,
+      }))
+      sizeCenters.current = new Map(
+        placed.filter((it) => it.kind !== 'image').map((it) => [it.id, { cx: it.x, cy: it.y }]),
+      )
+      pendingCenters.current = null
+      const placedById = new Map(placed.map((it) => [it.id, it]))
+      sourceItems.current = sourceItems.current.map((it) => {
+        const next = placedById.get(it.id)
+        if (!next) return it
+        return { ...it, x: next.x, y: next.y, align: next.align, fontSizeMm: next.fontSizeMm }
+      })
+      onChange({
+        ...settings,
+        items: placed,
+        pendingCenterIds: undefined,
+      })
+      return
+    }
+
+    const face = sheetRef.current?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
+    if (!face) return
+    const ids = settings.items.filter((it) => it.kind !== 'image').map((it) => it.id)
+    if (!ids.length) return
+    const units = measureAlignUnits(face, settings.items, ids)
+    if (!units.length) return
+    const minX = Math.min(...units.map((u) => u.minX))
+    const maxX = Math.max(...units.map((u) => u.maxX))
+    const minY = Math.min(...units.map((u) => u.minY))
+    const maxY = Math.max(...units.map((u) => u.maxY))
+    if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) return
+    const dx = Math.round((50 - (minX + maxX) / 2) * 10) / 10
+    const dy = Math.round((50 - (minY + maxY) / 2) * 10) / 10
+    if (Math.abs(dx) < 0.15 && Math.abs(dy) < 0.15) return
+    const idSet = new Set(ids)
+    pendingCenters.current = null
+    const shift = (x: number, y: number) => ({
+      x: Math.round((x + dx) * 10) / 10,
+      y: Math.round((y + dy) * 10) / 10,
+    })
+    if (sizeBase.current) {
+      sizeBase.current = sizeBase.current.map((item) =>
+        idSet.has(item.id) ? { ...item, ...shift(item.x, item.y) } : item,
+      )
+    }
+    if (sizeCenters.current) {
+      const nextCenters = new Map(sizeCenters.current)
+      for (const id of ids) {
+        const center = nextCenters.get(id)
+        if (center) nextCenters.set(id, { cx: center.cx + dx, cy: center.cy + dy })
+      }
+      sizeCenters.current = nextCenters
+    }
+    sourceItems.current = sourceItems.current.map((it) =>
+      idSet.has(it.id) ? { ...it, ...shift(it.x, it.y) } : it,
+    )
+    onChange({
+      ...settings,
+      items: settings.items.map((it) => (idSet.has(it.id) ? { ...it, ...shift(it.x, it.y) } : it)),
+      pendingCenterIds: undefined,
+    })
+  }, [phase, sizeDragEnd, settings, onChange, layoutId, sizePct, slotIds, sample])
+
   function applySizePct(pct: number) {
     const base = sizeBase.current
     if (!base?.length) return
@@ -481,44 +593,54 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     })
   }
 
+  function beginSizeDrag() {
+    if (sizeGesture.current) return
+    sizeGesture.current = true
+    sizeHoldNudge.current += 1
+    const scale = Math.max(sizePct, 1) / 100
+    sizeBase.current = settings.items.map((it) => ({
+      id: it.id,
+      x: it.x,
+      y: it.y,
+      fontSizeMm: Math.round((it.fontSizeMm / scale) * 10) / 10,
+    }))
+    const face = sheetRef.current?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
+    sizeCenters.current = face ? measureTextCenters(face, settings.items) : null
+  }
+
+  function endSizeDrag() {
+    if (!sizeGesture.current) return
+    sizeGesture.current = false
+    const hold = sizeHoldNudge.current
+    setSizeDragEnd((n) => n + 1)
+    window.setTimeout(() => {
+      if (sizeHoldNudge.current === hold) sizeHoldNudge.current = 0
+    }, 260)
+  }
+
   function goNext() {
     if (phase === 'paper') {
       setPhase('type')
       return
     }
     if (phase === 'type') {
-      const id = defaultBoothLayoutId(sourceItems.current.length)
-      setLayoutId(id)
-      fitSlots(id, slotIds, idleIds)
+      if (!layoutTouched.current) {
+        const id = defaultBoothLayoutId(sourceItems.current.length)
+        setLayoutId(id)
+        fitSlots(id, slotIds, idleIds)
+      } else {
+        commitLayout(layoutId, slotIds)
+      }
       setPhase('layout')
       return
     }
-    if (phase === 'layout') {
-      setPhase('frame')
-      return
-    }
-    if (phase === 'frame') {
-      const scale = Math.max(sizePct, 1) / 100
-      sizeBase.current = settings.items.map((it) => ({
-        id: it.id,
-        x: it.x,
-        y: it.y,
-        fontSizeMm: Math.round((it.fontSizeMm / scale) * 10) / 10,
-      }))
-      const face = sheetRef.current?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
-      sizeCenters.current = face ? measureTextCenters(face, settings.items) : null
-      setPhase('size')
-    }
+    if (phase === 'layout') setPhase('frame')
   }
 
   function goPrev() {
     if (phase === 'type') setPhase('paper')
     else if (phase === 'layout') setPhase('type')
     else if (phase === 'frame') setPhase('layout')
-    else if (phase === 'size') {
-      pendingCenters.current = null
-      setPhase('frame')
-    }
   }
 
   return (
@@ -526,17 +648,16 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       <div className="booth-main">
         <section className="booth-choose">
           <p className="booth-step-label">
-            步驟 {stepIndex}／5
+            步驟 {stepIndex}／4
             {phase === 'paper'
               ? ' · 尺寸與方向'
               : phase === 'type'
                 ? ' · 文字'
                 : phase === 'layout'
                   ? ' · 布局'
-                  : phase === 'frame'
-                    ? ' · 外框'
-                    : ' · 字體大小'}
+                  : ' · 外框'}
           </p>
+          <div className="booth-choose-body">
 
           {phase === 'paper' && (
             <>
@@ -611,6 +732,29 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                   />
                 </label>
               </div>
+              <h2>字體大小</h2>
+              <label className="booth-size">
+                <input
+                  type="range"
+                  min={80}
+                  max={120}
+                  step={5}
+                  value={sizePct}
+                  aria-label="字體大小"
+                  onPointerDown={beginSizeDrag}
+                  onKeyDown={(e) => {
+                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
+                    beginSizeDrag()
+                  }}
+                  onChange={(e) => applySizePct(Number(e.target.value))}
+                  onPointerUp={endSizeDrag}
+                  onKeyUp={(e) => {
+                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
+                    endSizeDrag()
+                  }}
+                />
+                <span>{sizePct}%</span>
+              </label>
             </>
           )}
 
@@ -815,6 +959,8 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                 ))}
               </div>
               {decor.kind !== 'none' && (
+                <>
+                <h2>外框顏色</h2>
                 <div className="booth-colors">
                   {CARD_DECOR_COLORS.map((hex) => (
                     <button
@@ -827,33 +973,17 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                     />
                   ))}
                 </div>
+                </>
               )}
             </>
           )}
-
-          {phase === 'size' && (
-            <>
-              <h2>字體大小</h2>
-              <label className="booth-size">
-                <input
-                  type="range"
-                  min={50}
-                  max={200}
-                  step={5}
-                  value={sizePct}
-                  aria-label="字體大小"
-                  onChange={(e) => applySizePct(Number(e.target.value))}
-                />
-                <span>{sizePct}%</span>
-              </label>
-            </>
-          )}
+          </div>
 
           <div className="booth-actions">
             <button type="button" className="btn" onClick={phase === 'paper' ? onBack : goPrev}>
               {phase === 'paper' ? '返回選擇' : '上一步'}
             </button>
-            {phase !== 'size' ? (
+            {phase !== 'frame' ? (
               <button type="button" className="btn primary" onClick={goNext}>
                 下一步
               </button>
@@ -878,8 +1008,8 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
             <div
               className="pages-preview-frame"
               style={{
-                width: `calc(${guide.widthMm}mm * ${scale})`,
-                height: `calc(${guide.heightMm}mm * ${scale})`,
+                width: `calc(${guide.widthMm}mm * ${viewScale})`,
+                height: `calc(${guide.heightMm}mm * ${viewScale})`,
               }}
             >
               <div
@@ -888,7 +1018,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                 style={{
                   width: `${guide.widthMm}mm`,
                   height: `${guide.heightMm}mm`,
-                  transform: `scale(${scale})`,
+                  transform: `scale(${viewScale})`,
                 }}
               >
                 <div className="paper-stage-inner has-guide" style={{ width: '100%', height: '100%' }}>
