@@ -40,5 +40,12 @@ function mountScaledFrame() {
   document.body.replaceChildren(frame)
 }
 
-if (new URLSearchParams(location.search).get('ui') === '1') mountApp()
+const compactScreen = window.matchMedia('(max-width: 899px)')
+const framed = new URLSearchParams(location.search).get('ui') === '1'
+
+if (framed || compactScreen.matches) mountApp()
 else mountScaledFrame()
+
+if (!framed) {
+  compactScreen.addEventListener('change', () => location.reload())
+}

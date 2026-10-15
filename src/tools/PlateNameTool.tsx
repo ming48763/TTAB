@@ -60,6 +60,7 @@ function cloneSettings(settings: LayoutSettings): LayoutSettings {
     ...settings,
     items: settings.items.map((item) => ({ ...item })),
     cardDecor: { ...settings.cardDecor },
+    badgeLook: settings.badgeLook ? { ...settings.badgeLook } : undefined,
     pendingCenterIds: settings.pendingCenterIds ? [...settings.pendingCenterIds] : undefined,
   }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { StepRail } from '../components/StepRail'
-import { parseExcelFile } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import {
   applyStats,
   bestNameMatch,
@@ -48,6 +49,7 @@ export function SnapSheetTool({ onHome }: Props) {
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [roster, setRoster] = useState<RosterPerson[]>([])
   const [rosterName, setRosterName] = useState('')
   const [wantTotal, setWantTotal] = useState(false)
@@ -127,13 +129,17 @@ export function SnapSheetTool({ onHome }: Props) {
 
   async function onRosterFile(file: File) {
     setError(null)
+    setLimitMessage(null)
     try {
-      const parsed = parseExcelFile(await file.arrayBuffer())
+      assertXlsxSize(file)
+      const parsed = await parseExcelFile(await file.arrayBuffer())
       const people = rosterFromStudents(parsed.rows, parsed.mappings)
       setRoster(people)
       setRosterName(file.name)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '名單讀取失敗')
+      const dialog = e instanceof ExcelLimitError ? e.message : fileUploadDialogMessage(e)
+      if (dialog) setLimitMessage(dialog)
+      else setError(e instanceof Error ? e.message : '名單讀取失敗')
     }
   }
 
@@ -338,6 +344,7 @@ export function SnapSheetTool({ onHome }: Props) {
             </div>
           </div>
         </main>
+        {limitMessage ? <UploadLimitNotice message={limitMessage} onClose={() => setLimitMessage(null)} /> : null}
       </div>
     )
   }

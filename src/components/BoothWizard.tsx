@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   applyBadgeSize,
   applyCardPaperSize,
@@ -9,13 +9,15 @@ import {
   paperDimensions,
   PAPER_PRESETS,
 } from '../lib/paper'
+import { BADGE_FIXED_STYLES, fixedBadgeLook } from '../lib/badgeLook'
 import { applyBadgeZones, applyBoothLayout, boothLayoutHasCornerExtra, boothLayoutPinsCorners, boothLayoutPresets, boothSlotAt, boothSlotCount, BOOTH_CORNER_CHOICES, defaultBadgeZoneOf, defaultBoothLayoutId, itemBoothLabel, resolveBoothLayoutId } from '../lib/boothLayouts'
 import type { BadgeZoneId, BadgeZoneStyle } from '../lib/boothLayouts'
 import type { PrintImposition } from '../lib/printLayout'
-import type { BadgeSizeId, LayoutSettings, LayoutItem, PageOrientation, PaperSizeId, StudentRow } from '../types'
+import type { BadgeLook, BadgeSizeId, LayoutSettings, LayoutItem, PageOrientation, PaperSizeId, StudentRow } from '../types'
 import {
   CARD_DECOR_CHOICES,
   CARD_DECOR_COLORS,
+  DEFAULT_BADGE_LOOK,
   DEFAULT_CARD_DECOR,
   FONT_CHOICES,
   clampFontWeight,
@@ -67,7 +69,14 @@ function placedIds(slots: (string | null)[]) {
   return slots.filter((id): id is string => Boolean(id))
 }
 
-type WizardStep = 'paper' | 'type' | 'layout' | 'frame'
+type WizardStep = 'paper' | 'type' | 'layout' | 'style' | 'text' | 'extra' | 'frame'
+type ExtraKey = 'extra-0' | 'extra-1'
+type ExtraSlot = { id: string | null; scale: number; baseMm: number }
+
+const EMPTY_EXTRA: ExtraSlot = { id: null, scale: 100, baseMm: 12 }
+
+/** 改為 true 後，欄位匯入超過三個元素會開啟步驟 5。 */
+const BADGE_EXTRA_STEP = false
 
 const GROUP_CENTER_LAYOUTS = new Set([
   'two-equal-tight',
@@ -140,6 +149,10 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const [scale, setScale] = useState(0.28)
 
   const isBadge = settings.mode === 'badge-single'
+  const importedCount = useRef(settings.items.length)
+  const showBadgeExtra = BADGE_EXTRA_STEP && isBadge && importedCount.current > 3
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
   const paperSize: PaperSizeId = settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
   const badgeSize: BadgeSizeId = settings.badgeSize ?? 'conf'
   const guide = isBadge
@@ -375,7 +388,19 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     })
   }
 
-  const stepIndex = phase === 'paper' ? 1 : phase === 'type' ? 2 : phase === 'layout' ? 3 : 4
+  const stepTotal = isBadge && showBadgeExtra ? 5 : 4
+  const stepIndex =
+    phase === 'paper'
+      ? 1
+      : phase === 'type'
+        ? 2
+        : phase === 'layout' || phase === 'style'
+          ? 3
+          : phase === 'extra'
+            ? 5
+            : 4
+  const look = settings.badgeLook ?? DEFAULT_BADGE_LOOK
+  const isLastStep = isBadge ? (showBadgeExtra ? phase === 'extra' : phase === 'text') : phase === 'frame'
   const textItem = settings.items.find((it) => it.kind !== 'image') ?? sourceItems.current.find((it) => it.kind !== 'image')
   const textFont = textItem?.fontFamily ?? FONT_CHOICES[0].id
   const textColor = textItem?.color ?? '#0f241f'
@@ -386,7 +411,9 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     bot: { on: true, align: 'center', bold: false, sizePct: 100 },
   })
   const [badgePick, setBadgePick] = useState<Record<BadgeZoneId, string | null>>(() => initialBadgePick(settings.items))
-  const [badgeDraft, setBadgeDraft] = useState<{ zone: BadgeZoneId; text: string } | null>(null)
+  const [badgeDraft, setBadgeDraft] = useState<{ zone: BadgeZoneId | ExtraKey; text: string } | null>(null)
+  const [extraSlots, setExtraSlots] = useState<[ExtraSlot, ExtraSlot]>([{ ...EMPTY_EXTRA }, { ...EMPTY_EXTRA }])
+  const [chipPct, setChipPct] = useState<Record<string, { w: number; h: number }>>({})
   const [sizeDragEnd, setSizeDragEnd] = useState(0)
   const sizeBase = useRef<{ id: string; x: number; y: number; fontSizeMm: number }[] | null>(null)
   const sizeCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
@@ -418,6 +445,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
 
   useLayoutEffect(() => {
     if (!isBadge) return
+    const keepIds = new Set(extraSlots.map((slot) => slot.id).filter((id): id is string => Boolean(id)))
     const placed = applyBadgeZones(
       settings.items,
       picksToZoneOf(badgePick),
@@ -425,6 +453,8 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       settings.faceHeightMm,
       sizePct,
       layoutFontScale,
+      (settings.badgeLook ?? DEFAULT_BADGE_LOOK).lift ?? 50,
+      keepIds,
     )
     const same = placed.every((item, index) => {
       const prev = settings.items[index]
@@ -442,7 +472,53 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
     if (same) return
     sourceItems.current = placed.map((item) => ({ ...item }))
     onChange({ ...settings, items: placed })
-  }, [isBadge, settings, badgePick, badgeZones, sizePct, layoutFontScale, onChange])
+  }, [isBadge, settings, badgePick, badgeZones, sizePct, layoutFontScale, extraSlots, onChange])
+
+  useLayoutEffect(() => {
+    if (!isBadge || phase !== 'extra') return
+    const ratio = settings.faceHeightMm > 0 ? settings.widthMm / settings.faceHeightMm : 1
+    document.querySelectorAll('.badge-extra-map-wrap').forEach((wrap) => {
+      const map = wrap.querySelector('.badge-extra-map') as HTMLElement | null
+      if (!map) return
+      const box = wrap.getBoundingClientRect()
+      let width = box.width
+      let height = width / ratio
+      if (height > box.height) {
+        height = box.height
+        width = height * ratio
+      }
+      map.style.width = `${Math.max(0, width)}px`
+      map.style.height = `${Math.max(0, height)}px`
+    })
+  }, [isBadge, phase, settings.widthMm, settings.faceHeightMm])
+
+  useLayoutEffect(() => {
+    if (!isBadge || phase !== 'extra') return
+    const face = sheetRef.current?.querySelector('.plate-face[data-face="front"]') as HTMLElement | null
+    if (!face) return
+    const faceBox = face.getBoundingClientRect()
+    if (faceBox.width < 1 || faceBox.height < 1) return
+    const next: Record<string, { w: number; h: number }> = {}
+    for (const slot of extraSlots) {
+      if (!slot.id) continue
+      const el = face.querySelector(`[data-item-id="${CSS.escape(slot.id)}"]`) as HTMLElement | null
+      if (!el) continue
+      const box = el.getBoundingClientRect()
+      next[slot.id] = {
+        w: Math.round(Math.min(100, (box.width / faceBox.width) * 100) * 10) / 10,
+        h: Math.round(Math.min(100, (box.height / faceBox.height) * 100) * 10) / 10,
+      }
+    }
+    setChipPct((cur) => {
+      const ids = Object.keys(next)
+      if (ids.length !== Object.keys(cur).length) return next
+      for (const id of ids) {
+        const prev = cur[id]
+        if (!prev || Math.abs(prev.w - next[id].w) > 0.4 || Math.abs(prev.h - next[id].h) > 0.4) return next
+      }
+      return cur
+    })
+  }, [isBadge, phase, extraSlots, settings.items])
 
   useLayoutEffect(() => {
     let cancelled = false
@@ -706,17 +782,54 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
         } else {
           commitLayout(layoutId, slotIds)
         }
+        setPhase('layout')
+        return
       }
-      setPhase('layout')
+      setPhase('style')
       return
     }
     if (phase === 'layout') setPhase('frame')
+    else if (phase === 'style') setPhase('text')
+    else if (phase === 'text' && showBadgeExtra) setPhase('extra')
   }
 
   function goPrev() {
     if (phase === 'type') setPhase('paper')
     else if (phase === 'layout') setPhase('type')
+    else if (phase === 'style') setPhase('type')
+    else if (phase === 'text') setPhase('style')
+    else if (phase === 'extra') setPhase('text')
     else if (phase === 'frame') setPhase('layout')
+  }
+
+  function patchBadgeLook(partial: Partial<BadgeLook>) {
+    const current = settings.badgeLook ?? DEFAULT_BADGE_LOOK
+    onChange({ ...settings, badgeLook: { ...current, ...partial } })
+  }
+
+  function releaseExtra(itemId: string) {
+    if (!itemId) return
+    setExtraSlots((cur) => {
+      if (!cur.some((slot) => slot.id === itemId)) return cur
+      return cur.map((slot) => (slot.id === itemId ? { ...EMPTY_EXTRA } : slot)) as [ExtraSlot, ExtraSlot]
+    })
+  }
+
+  function occupyExtra(index: 0 | 1, itemId: string, baseMm: number) {
+    setExtraSlots((cur) => {
+      const next: [ExtraSlot, ExtraSlot] = [{ ...cur[0] }, { ...cur[1] }]
+      const other = (1 - index) as 0 | 1
+      if (next[other].id === itemId) next[other] = { ...EMPTY_EXTRA }
+      next[index] = { id: itemId, scale: 100, baseMm }
+      return next
+    })
+    setBadgePick((cur) => {
+      const next = { ...cur }
+      ;(['top', 'mid', 'bot'] as const).forEach((zone) => {
+        if (next[zone] === itemId) next[zone] = null
+      })
+      return next
+    })
   }
 
   function pickBadgeContent(zone: BadgeZoneId, itemId: string) {
@@ -727,12 +840,83 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       })
       return next
     })
+    if (itemId) releaseExtra(itemId)
   }
 
-  function addBadgeContent(zone: BadgeZoneId, text: string) {
+  function clearExtra(index: 0 | 1) {
+    setExtraSlots((cur) => {
+      const next: [ExtraSlot, ExtraSlot] = [{ ...cur[0] }, { ...cur[1] }]
+      next[index] = { ...EMPTY_EXTRA }
+      return next
+    })
+  }
+
+  function assignExtra(index: 0 | 1, itemId: string) {
+    const item = settings.items.find((it) => it.id === itemId)
+    if (!item) return
+    occupyExtra(index, itemId, item.fontSizeMm || 12)
+    onChange({
+      ...settings,
+      items: settings.items.map((it) =>
+        it.id === itemId ? { ...it, hidden: false, align: 'center', x: 50, y: 50 } : it,
+      ),
+    })
+  }
+
+  function setExtraScale(index: 0 | 1, scale: number) {
+    const slot = extraSlots[index]
+    if (!slot.id) return
+    setExtraSlots((cur) => {
+      const next: [ExtraSlot, ExtraSlot] = [{ ...cur[0] }, { ...cur[1] }]
+      next[index] = { ...cur[index], scale }
+      return next
+    })
+    const fontSizeMm = Math.max(2, Math.round(((slot.baseMm * scale) / 100) * 10) / 10)
+    onChange({
+      ...settings,
+      items: settings.items.map((it) => (it.id === slot.id ? { ...it, fontSizeMm } : it)),
+    })
+  }
+
+  function dragExtraChip(event: ReactPointerEvent<HTMLDivElement>, itemId: string) {
+    event.preventDefault()
+    const map = event.currentTarget.parentElement
+    if (!map) return
+    const pointerId = event.pointerId
+    const chip = chipPct[itemId] ?? { w: 16, h: 12 }
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const rect = map.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1) return
+      const halfW = chip.w / 2
+      const halfH = chip.h / 2
+      const x = Math.round(Math.min(100 - halfW, Math.max(halfW, ((ev.clientX - rect.left) / rect.width) * 100)) * 10) / 10
+      const y = Math.round(Math.min(100 - halfH, Math.max(halfH, ((ev.clientY - rect.top) / rect.height) * 100)) * 10) / 10
+      const current = settingsRef.current
+      const prev = current.items.find((it) => it.id === itemId)
+      if (!prev || (prev.x === x && prev.y === y && prev.align === 'center' && !prev.hidden)) return
+      onChange({
+        ...current,
+        items: current.items.map((it) =>
+          it.id === itemId ? { ...it, x, y, align: 'center', hidden: false } : it,
+        ),
+      })
+    }
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  function addBadgeContent(zone: BadgeZoneId | ExtraKey, text: string) {
     const trimmed = text.trim()
     if (!trimmed) return
     const sampleItem = settings.items.find((item) => item.kind !== 'image')
+    const extra = zone === 'extra-0' || zone === 'extra-1'
+    const zoneStyle = extra ? null : badgeZones[zone]
     const item: LayoutItem = {
       id: uid('static'),
       kind: 'static',
@@ -740,18 +924,22 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       x: 50,
       y: 50,
       fontSizeMm: sampleItem?.fontSizeMm ?? 8,
-      fontWeight: badgeZones[zone].bold ? 700 : 400,
-      align: badgeZones[zone].align,
+      fontWeight: zoneStyle?.bold ? 700 : 400,
+      align: zoneStyle?.align ?? 'center',
       color: sampleItem?.color ?? '#0f241f',
       fontFamily: sampleItem?.fontFamily,
     }
-    setBadgePick((cur) => {
-      const next = { ...cur, [zone]: item.id }
-      ;(['top', 'mid', 'bot'] as const).forEach((other) => {
-        if (other !== zone && next[other] === item.id) next[other] = null
+    if (zone === 'extra-0' || zone === 'extra-1') {
+      occupyExtra(zone === 'extra-0' ? 0 : 1, item.id, item.fontSizeMm)
+    } else {
+      setBadgePick((cur) => {
+        const next = { ...cur, [zone]: item.id }
+        ;(['top', 'mid', 'bot'] as const).forEach((other) => {
+          if (other !== zone && next[other] === item.id) next[other] = null
+        })
+        return next
       })
-      return next
-    })
+    }
     onChange({ ...settings, items: [...settings.items, item] })
     setBadgeDraft(null)
   }
@@ -761,7 +949,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
       <div className="booth-main">
         <section className="booth-choose">
           <p className="booth-step-label">
-            步驟 {stepIndex}／4
+            步驟 {stepIndex}／{stepTotal}
             {phase === 'paper'
               ? isBadge
                 ? ' · 尺寸'
@@ -770,7 +958,13 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                 ? ' · 文字'
                 : phase === 'layout'
                   ? ' · 布局'
-                  : ' · 外框'}
+                  : phase === 'style'
+                    ? ' · 選擇樣式'
+                    : phase === 'text'
+                      ? ' · 文字調整'
+                      : phase === 'extra'
+                        ? ' · 額外元素'
+                        : ' · 外框'}
           </p>
           <div className="booth-choose-body">
 
@@ -867,35 +1061,95 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                   />
                 </label>
               </div>
-              <h2>字體大小</h2>
+              {isBadge ? null : (
+                <>
+                  <h2>字體大小</h2>
+                  <label className="booth-size">
+                    <input
+                      type="range"
+                      min={80}
+                      max={120}
+                      step={5}
+                      value={sizePct}
+                      aria-label="字體大小"
+                      onPointerDown={beginSizeDrag}
+                      onKeyDown={(e) => {
+                        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
+                        beginSizeDrag()
+                      }}
+                      onChange={(e) => applySizePct(Number(e.target.value))}
+                      onPointerUp={endSizeDrag}
+                      onKeyUp={(e) => {
+                        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
+                        endSizeDrag()
+                      }}
+                    />
+                    <span>{sizePct}%</span>
+                  </label>
+                </>
+              )}
+            </>
+          )}
+
+          {phase === 'style' && isBadge && (
+            <>
+              <h2>選擇樣式</h2>
+              <div className="booth-cards">
+                {BADGE_FIXED_STYLES.map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    className={`booth-card ${fixedBadgeLook(look).style === choice.id ? 'is-active' : ''}`}
+                    onClick={() => patchBadgeLook({ style: choice.id, place: 'mid' })}
+                  >
+                    <strong>{choice.label}</strong>
+                  </button>
+                ))}
+              </div>
+              {look.style !== 'none' && (
+                <>
+                  <h2>樣式顏色</h2>
+                  <div className="booth-colors">
+                    {CARD_DECOR_COLORS.map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        className={`decor-swatch ${look.color.toLowerCase() === hex.toLowerCase() ? 'is-active' : ''}`}
+                        style={{ background: hex }}
+                        aria-label={hex}
+                        onClick={() => patchBadgeLook({ color: hex })}
+                      />
+                    ))}
+                    <label className="decor-pick" title="自訂顏色">
+                      <input
+                        type="color"
+                        value={/^#[0-9a-fA-F]{6}$/.test(look.color) ? look.color : '#0f6e56'}
+                        onChange={(e) => patchBadgeLook({ color: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
+              <h2>垂直位置</h2>
               <label className="booth-size">
+                <span>靠上</span>
                 <input
                   type="range"
-                  min={80}
-                  max={120}
-                  step={5}
-                  value={sizePct}
-                  aria-label="字體大小"
-                  onPointerDown={beginSizeDrag}
-                  onKeyDown={(e) => {
-                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
-                    beginSizeDrag()
-                  }}
-                  onChange={(e) => applySizePct(Number(e.target.value))}
-                  onPointerUp={endSizeDrag}
-                  onKeyUp={(e) => {
-                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) return
-                    endSizeDrag()
-                  }}
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={look.lift ?? 50}
+                  aria-label="垂直位置"
+                  onChange={(e) => patchBadgeLook({ lift: Number(e.target.value), place: 'mid' })}
                 />
-                <span>{sizePct}%</span>
+                <span>靠下</span>
               </label>
             </>
           )}
 
-          {phase === 'layout' && isBadge && (
+          {phase === 'text' && isBadge && (
             <>
-              <h2>名牌布局</h2>
+              <h2>文字調整</h2>
               <div className="badge-zones">
                 {(
                   [
@@ -991,6 +1245,67 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                 })}
               </div>
             </>
+          )}
+
+          {phase === 'extra' && isBadge && (
+            <div className="badge-extras">
+              {([0, 1] as const).map((index) => {
+                const slot = extraSlots[index]
+                const label = index === 0 ? '額外 1' : '額外 2'
+                const item = slot.id ? settings.items.find((it) => it.id === slot.id) : undefined
+                const box = slot.id ? chipPct[slot.id] : undefined
+                return (
+                  <section key={label} className="badge-extra" aria-label={label}>
+                    <strong>{label}</strong>
+                    <select
+                      className="badge-zone-select"
+                      aria-label={`${label}內容`}
+                      value={slot.id ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value === '__add__') setBadgeDraft({ zone: index === 0 ? 'extra-0' : 'extra-1', text: '' })
+                        else if (!value) clearExtra(index)
+                        else assignExtra(index, value)
+                      }}
+                    >
+                      <option value="">無</option>
+                      {settings.items.map((choice) => (
+                        <option key={choice.id} value={choice.id}>
+                          {itemBoothLabel(choice, sample)}
+                        </option>
+                      ))}
+                      <option value="__add__">加入新內容</option>
+                    </select>
+                    <label className="badge-zone-size">
+                      <input
+                        type="range"
+                        min={40}
+                        max={200}
+                        step={10}
+                        value={slot.scale}
+                        disabled={!slot.id}
+                        aria-label={`${label}大小`}
+                        onChange={(e) => setExtraScale(index, Number(e.target.value))}
+                      />
+                      <span>{slot.scale}%</span>
+                    </label>
+                    <div className="badge-extra-map-wrap">
+                      <div className="badge-extra-map">
+                        {item && box ? (
+                          <div
+                            className="badge-extra-chip"
+                            style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${box.w}%`, height: `${box.h}%` }}
+                            onPointerDown={(e) => dragExtraChip(e, item.id)}
+                          >
+                            {item.kind === 'image' && item.imageSrc ? <img src={item.imageSrc} alt="" /> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
           )}
 
           {phase === 'layout' && !isBadge && (
@@ -1178,7 +1493,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
             </>
           )}
 
-          {phase === 'frame' && (
+          {phase === 'frame' && !isBadge && (
             <>
               <h2>選擇外框</h2>
               <div className="booth-cards is-frame">
@@ -1218,7 +1533,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
             <button type="button" className="btn" onClick={phase === 'paper' ? onBack : goPrev}>
               {phase === 'paper' ? '返回選擇' : '上一步'}
             </button>
-            {phase !== 'frame' ? (
+            {!isLastStep ? (
               <button type="button" className="btn primary" onClick={goNext}>
                 下一步
               </button>

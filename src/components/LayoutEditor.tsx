@@ -17,7 +17,8 @@ import type {
   PlateMode,
   StudentRow,
 } from '../types'
-import { CARD_DECOR_CHOICES, CARD_DECOR_COLORS, DEFAULT_CARD_DECOR, FONT_CHOICES, FONT_WEIGHT_LABELS, SEQUENCE_HEADER, clampFontWeight, fontChoice, uid } from '../types'
+import { CARD_DECOR_CHOICES, CARD_DECOR_COLORS, DEFAULT_BADGE_LOOK, DEFAULT_CARD_DECOR, FONT_CHOICES, FONT_WEIGHT_LABELS, SEQUENCE_HEADER, clampFontWeight, fontChoice, uid, type BadgeLook } from '../types'
+import { BADGE_FIXED_STYLES, fixedBadgeLook } from '../lib/badgeLook'
 import {
   alignItems,
   measureAlignUnits,
@@ -65,23 +66,107 @@ function HoverMenu({
   label,
   value,
   disabled,
+  className,
+  widthLabel,
   children,
 }: {
   label: string
   value: string
   disabled?: boolean
+  className?: string
+  widthLabel?: string
   children: ReactNode
 }) {
   return (
-    <div className={`toolbar-drop ${disabled ? 'is-disabled' : ''}`}>
+    <div className={`toolbar-drop ${className ?? ''} ${disabled ? 'is-disabled' : ''}`}>
       <button type="button" className="toolbar-drop-btn" disabled={disabled}>
-        {value}
+        {widthLabel ? (
+          <>
+            <span className="size-drop-value">{value}</span>
+            <span className="size-drop-sizer" aria-hidden="true">
+              {widthLabel}
+            </span>
+          </>
+        ) : (
+          value
+        )}
       </button>
       <div className="toolbar-drop-menu" aria-label={label}>
         {children}
       </div>
     </div>
   )
+}
+
+/** Width of a top-toolbar menu in the layout it uses before portrait stacking. */
+function naturalMenuWidth(drop: HTMLElement, menu: HTMLElement) {
+  const prev = {
+    display: menu.style.display,
+    visibility: menu.style.visibility,
+    flexDirection: menu.style.flexDirection,
+    width: menu.style.width,
+    minWidth: menu.style.minWidth,
+    maxWidth: menu.style.maxWidth,
+  }
+  const wasStacked = drop.classList.contains('is-stacked')
+  drop.classList.remove('is-stacked')
+  const chips = drop.classList.contains('decor-drop') || drop.classList.contains('fold-drop')
+  menu.style.visibility = 'hidden'
+  menu.style.display = chips ? 'block' : 'flex'
+  menu.style.flexDirection = chips ? '' : 'column'
+  menu.style.width = ''
+  menu.style.minWidth = ''
+  menu.style.maxWidth = ''
+  const width = menu.scrollWidth
+  menu.style.display = prev.display
+  menu.style.visibility = prev.visibility
+  menu.style.flexDirection = prev.flexDirection
+  menu.style.width = prev.width
+  menu.style.minWidth = prev.minWidth
+  menu.style.maxWidth = prev.maxWidth
+  drop.classList.toggle('is-stacked', wasStacked)
+  return width
+}
+
+/**
+ * Portrait: keep each floating menu inside the toolbar width.
+ * A menu wider than that row stacks downward; a narrower one stays horizontal
+ * and shifts left only when its anchor would paint past the row.
+ */
+function fitEditorToolbarMenus(toolbar: HTMLElement | null) {
+  if (!toolbar) return
+  const drops = [...toolbar.querySelectorAll<HTMLElement>('.toolbar-row .toolbar-drop')]
+  const portrait = window.matchMedia('(orientation: portrait)').matches
+  if (!portrait) {
+    for (const drop of drops) {
+      drop.classList.remove('is-stacked')
+      drop.style.removeProperty('--menu-left')
+      drop.style.removeProperty('--menu-max')
+    }
+    return
+  }
+  const styles = getComputedStyle(toolbar)
+  const padL = Number.parseFloat(styles.paddingLeft) || 0
+  const padR = Number.parseFloat(styles.paddingRight) || 0
+  const toolbarRect = toolbar.getBoundingClientRect()
+  const contentLeft = toolbarRect.left + padL
+  const contentRight = toolbarRect.right - padR
+  const avail = Math.max(0, Math.floor(contentRight - contentLeft))
+  for (const drop of drops) {
+    const menu = drop.querySelector<HTMLElement>(':scope > .toolbar-drop-menu')
+    if (!menu) continue
+    const natural = naturalMenuWidth(drop, menu)
+    const dropRect = drop.getBoundingClientRect()
+    const stack = natural > avail + 1
+    let left = 0
+    if (stack) left = contentLeft - dropRect.left
+    else if (dropRect.left + natural > contentRight + 1) left = contentRight - natural - dropRect.left
+    drop.classList.toggle('is-stacked', stack)
+    if (Math.abs(left) > 0.5) drop.style.setProperty('--menu-left', `${Math.round(left)}px`)
+    else drop.style.removeProperty('--menu-left')
+    if (stack) drop.style.setProperty('--menu-max', `${avail}px`)
+    else drop.style.removeProperty('--menu-max')
+  }
 }
 
 export function LayoutEditor({
@@ -278,6 +363,11 @@ export function LayoutEditor({
     commit({ ...settings, ...partial })
   }
 
+  function patchBadgeLook(partial: Partial<BadgeLook>) {
+    const current = badgeLook
+    commit({ ...settings, badgeLook: { ...current, ...partial, place: 'mid' } })
+  }
+
   function patchDecor(partial: Partial<NonNullable<LayoutSettings['cardDecor']>>) {
     const current = settings.cardDecor ?? DEFAULT_CARD_DECOR
     patch({ cardDecor: { ...current, ...partial } })
@@ -312,6 +402,35 @@ export function LayoutEditor({
     })
     setSelectedIds([id])
     setFreshId(id)
+  }
+
+  function addImage(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const id = uid('image')
+      const current = settingsRef.current
+      commit({
+        ...current,
+        items: [
+          ...current.items,
+          {
+            id,
+            kind: 'image',
+            text: '圖片',
+            imageSrc: String(reader.result ?? ''),
+            x: 50,
+            y: 50,
+            fontSizeMm: 18,
+            fontWeight: 400,
+            align: 'center',
+            color: '#0f241f',
+          },
+        ],
+      })
+      setSelectedIds([id])
+      setFreshId(id)
+    }
+    reader.readAsDataURL(file)
   }
 
   function addField() {
@@ -414,6 +533,7 @@ export function LayoutEditor({
   )
 
   const isBadge = settings.mode === 'badge-single'
+  const badgeLook = fixedBadgeLook(settings.badgeLook ?? DEFAULT_BADGE_LOOK)
   const badgeSize: BadgeSizeId = settings.badgeSize ?? 'conf'
   const paperSize: PaperSizeId =
     settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
@@ -421,6 +541,8 @@ export function LayoutEditor({
     ? { widthMm: settings.widthMm, heightMm: settings.faceHeightMm }
     : paperDimensions(paperSize, settings.orientation)
   const stageRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const paperRef = useRef<HTMLDivElement>(null)
   const panDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
   const [portrait, setPortrait] = useState(false)
@@ -437,6 +559,31 @@ export function LayoutEditor({
     sync()
     mq.addEventListener('change', sync)
     return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  useLayoutEffect(() => {
+    fitEditorToolbarMenus(toolbarRef.current)
+  })
+
+  useEffect(() => {
+    const toolbar = toolbarRef.current
+    if (!toolbar) return
+    const fit = () => fitEditorToolbarMenus(toolbar)
+    const ro = new ResizeObserver(fit)
+    ro.observe(toolbar)
+    const mq = window.matchMedia('(orientation: portrait)')
+    mq.addEventListener('change', fit)
+    const fonts = document.fonts
+    const onFonts = () => fit()
+    fonts?.addEventListener('loadingdone', onFonts)
+    void fonts?.ready.then(() => {
+      if (toolbar.isConnected) fit()
+    })
+    return () => {
+      ro.disconnect()
+      mq.removeEventListener('change', fit)
+      fonts?.removeEventListener('loadingdone', onFonts)
+    }
   }, [])
 
   useEffect(() => {
@@ -489,6 +636,19 @@ export function LayoutEditor({
     }
   }
 
+  useEffect(() => {
+    if (selectedIds.length === 0) return
+    function onPointerDown(e: PointerEvent) {
+      const el = e.target as HTMLElement | null
+      if (!el?.closest) return
+      if (el.closest('.item-mini-bar, .font-handle, .image-rotate-handle, .image-frame-dialog, .plate-item')) return
+      setSelectedIds([])
+      setFreshId(null)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [selectedIds.length])
+
   function onStagePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (!fitMode || e.button !== 0) return
     const el = e.target as HTMLElement
@@ -518,7 +678,7 @@ export function LayoutEditor({
 
   return (
     <div className="editor-shell">
-      <header className="editor-toolbar no-print">
+      <header ref={toolbarRef} className="editor-toolbar no-print">
         <div className="toolbar-row">
         <div className="toolbar-brand">
           <BrandMark size="sm" onHome={onHome} />
@@ -546,8 +706,13 @@ export function LayoutEditor({
         )}
 
         <div className="toolbar-group">
-          <span className="toolbar-label">{isBadge ? '名牌' : '紙張'}</span>
-          <HoverMenu label={isBadge ? '名牌尺寸' : '紙張尺寸'} value={isBadge ? BADGE_PRESETS[badgeSize].inch : paperSize}>
+          <span className="toolbar-label">{isBadge ? '尺寸' : '紙張'}</span>
+          <HoverMenu
+            className={isBadge ? 'size-drop' : undefined}
+            label={isBadge ? '尺寸' : '紙張尺寸'}
+            widthLabel={isBadge ? BADGE_PRESETS.mini.inch : undefined}
+            value={isBadge ? BADGE_PRESETS[badgeSize].inch : paperSize}
+          >
             {isBadge
               ? BADGE_IDS.map((id) => (
                   <button
@@ -571,6 +736,74 @@ export function LayoutEditor({
                 ))}
           </HoverMenu>
         </div>
+
+        {isBadge && (
+        <div className="toolbar-group">
+          <span className="toolbar-label">樣式</span>
+          <div className="toolbar-drop decor-drop badge-look-drop">
+            <button type="button" className="toolbar-drop-btn">
+              {BADGE_FIXED_STYLES.find((choice) => choice.id === badgeLook.style)?.label ?? '無'}
+            </button>
+            <div className="toolbar-drop-menu">
+              <div className="decor-style-panel">
+                <div className="decor-kinds">
+                  {BADGE_FIXED_STYLES.map((choice) => (
+                    <button
+                      key={choice.id}
+                      type="button"
+                      className={badgeLook.style === choice.id ? 'is-active' : ''}
+                      onClick={() => patchBadgeLook({ style: choice.id })}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
+                </div>
+                {badgeLook.style !== 'none' && (
+                  <div className="decor-colors">
+                    {CARD_DECOR_COLORS.map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        className={`decor-swatch ${badgeLook.color.toLowerCase() === hex.toLowerCase() ? 'is-active' : ''}`}
+                        style={{ background: hex }}
+                        aria-label={hex}
+                        onClick={() => patchBadgeLook({ color: hex })}
+                      />
+                    ))}
+                    <label className="decor-pick" title="自訂顏色">
+                      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+                        <path
+                          fill="currentColor"
+                          d="M13.4 1.1a1.5 1.5 0 0 1 2.1 2.1l-1.2 1.2-2.1-2.1 1.2-1.2ZM11.5 3.8 3.2 12.1l-.9 2.6 2.6-.9 8.3-8.3-1.7-1.7Z"
+                        />
+                      </svg>
+                      <input
+                        type="color"
+                        value={/^#[0-9a-fA-F]{6}$/.test(badgeLook.color) ? badgeLook.color : '#0f6e56'}
+                        onChange={(e) => patchBadgeLook({ color: e.target.value })}
+                        aria-label="自訂顏色"
+                      />
+                    </label>
+                  </div>
+                )}
+                <label className="badge-look-lift">
+                  <span>靠上</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={badgeLook.lift ?? 50}
+                    aria-label="垂直位置"
+                    onChange={(e) => patchBadgeLook({ lift: Number(e.target.value) })}
+                  />
+                  <span>靠下</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
 
         {isBadge ? null : (
         <div className="toolbar-group">
@@ -596,9 +829,10 @@ export function LayoutEditor({
         </div>
 
         <div className="toolbar-row">
+        {isBadge ? null : (
         <div className="toolbar-group">
           <span className="toolbar-label">樣式</span>
-          <div className="toolbar-drop decor-drop">
+          <div className="toolbar-drop decor-drop desk-decor-drop">
             <button type="button" className="toolbar-drop-btn">
               {CARD_DECOR_CHOICES.find((c) => c.id === (settings.cardDecor?.kind ?? 'none'))?.label ??
                 '樣式'}
@@ -647,31 +881,32 @@ export function LayoutEditor({
                         aria-label="自訂底色"
                       />
                     </label>
-                    {((settings.cardDecor?.kind ?? 'none') === 'inset-line' ||
-                      (settings.cardDecor?.kind ?? 'none') === 'double-frame') && (
-                      <div className="seg">
-                        <button
-                          type="button"
-                          className={(settings.cardDecor?.lineStyle ?? 'dashed') === 'dashed' ? 'is-active' : ''}
-                          onClick={() => patchDecor({ lineStyle: 'dashed' })}
-                        >
-                          虛線
-                        </button>
-                        <button
-                          type="button"
-                          className={settings.cardDecor?.lineStyle === 'solid' ? 'is-active' : ''}
-                          onClick={() => patchDecor({ lineStyle: 'solid' })}
-                        >
-                          實線
-                        </button>
-                      </div>
-                    )}
+                  </div>
+                )}
+                {((settings.cardDecor?.kind ?? 'none') === 'inset-line' ||
+                  (settings.cardDecor?.kind ?? 'none') === 'double-frame') && (
+                  <div className="seg desk-line-style">
+                    <button
+                      type="button"
+                      className={(settings.cardDecor?.lineStyle ?? 'dashed') === 'dashed' ? 'is-active' : ''}
+                      onClick={() => patchDecor({ lineStyle: 'dashed' })}
+                    >
+                      虛線
+                    </button>
+                    <button
+                      type="button"
+                      className={settings.cardDecor?.lineStyle === 'solid' ? 'is-active' : ''}
+                      onClick={() => patchDecor({ lineStyle: 'solid' })}
+                    >
+                      實線
+                    </button>
                   </div>
                 )}
               </div>
             </div>
           </div>
         </div>
+        )}
 
         <div className="toolbar-group">
           <span className="toolbar-label">對齊</span>
@@ -786,7 +1021,21 @@ export function LayoutEditor({
             <button type="button" disabled={!activeFields.length} onClick={addField}>
               欄位
             </button>
+            <button type="button" onClick={() => imageInputRef.current?.click()}>
+              圖片
+            </button>
           </HoverMenu>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) addImage(file)
+            }}
+          />
         </div>
         </div>
       </header>
@@ -824,7 +1073,7 @@ export function LayoutEditor({
               }}
               onPointerDown={(e) => {
                 const el = e.target as HTMLElement
-                if (el.closest('.plate-item, .item-mini-bar')) return
+                if (el.closest('.plate-item, .item-mini-bar, .image-frame-dialog')) return
                 setFreshId(null)
                 setSelectedIds([])
               }}

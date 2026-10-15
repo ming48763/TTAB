@@ -29,6 +29,8 @@ export function HomeIndex({ onOpenTool, stats }: Props) {
   useEffect(() => {
     const header = headerRef.current
     if (!header) return
+    const compact = window.matchMedia('(max-width: 640px)')
+    if (compact.matches) return
     let frame = 0
     const fadeDistance = 96
     const update = () => {

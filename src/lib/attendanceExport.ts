@@ -11,6 +11,7 @@ import {
   type AttendanceCard,
   type PeriodLevel,
 } from './attendance'
+import { assertTableSpan, assertXlsxInflate } from './excel'
 
 export type AttDateMode = 'fixed' | 'today' | 'standing'
 
@@ -583,8 +584,12 @@ function readDaySheet(
 }
 
 export async function importAttendanceExcel(file: ArrayBuffer, level: PeriodLevel = 'above') {
+  await assertXlsxInflate(file)
   const book = new ExcelJS.Workbook()
   await book.xlsx.load(file)
+  for (const sheet of book.worksheets) {
+    assertTableSpan(sheet.rowCount, sheet.columnCount)
+  }
   const names = Array.from({ length: 30 }, () => '')
   const incoming: PackedCard[] = []
   const presentDays = new Set<string>()

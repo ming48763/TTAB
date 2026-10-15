@@ -18,6 +18,8 @@ import {
   weekdayMon0FromIso,
   type AttDateMode,
 } from '../lib/attendanceExport'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage } from '../lib/excel'
+import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import { uid } from '../types'
 
 interface Props {
@@ -79,6 +81,7 @@ export function AttendanceTool({ onHome }: Props) {
   const [dateMode, setDateMode] = useState<AttDateMode>('today')
   const [pickedDate, setPickedDate] = useState(todayIso)
   const [exportOpen, setExportOpen] = useState(false)
+  const [limitMessage, setLimitMessage] = useState<string | null>(null)
 
   function packStamp() {
     const date = dateMode === 'fixed' ? pickedDate : todayIso()
@@ -239,18 +242,24 @@ export function AttendanceTool({ onHome }: Props) {
                 input.onchange = async () => {
                   const file = input.files?.[0]
                   if (!file) return
-                  const incoming = await importAttendanceExcel(await file.arrayBuffer(), periodLevel)
-                  const stamped = packs.map((pack) =>
-                    pack.dateMode === 'standing'
-                      ? pack
-                      : { ...pack, ...packStamp(), dateMode: packStamp().dateMode },
-                  )
-                  const mergedPacks = mergeImportedPacks(incoming.packs, stamped, periodLevel)
-                  const mergedNames = mergeNames(incoming.names, names)
-                  await exportAttendanceExcel(mergedPacks, mergedNames, periodLevel, packStamp(), {
-                    restamp: false,
-                    presentDays: incoming.presentDays,
-                  })
+                  try {
+                    assertXlsxSize(file)
+                    const incoming = await importAttendanceExcel(await file.arrayBuffer(), periodLevel)
+                    const stamped = packs.map((pack) =>
+                      pack.dateMode === 'standing'
+                        ? pack
+                        : { ...pack, ...packStamp(), dateMode: packStamp().dateMode },
+                    )
+                    const mergedPacks = mergeImportedPacks(incoming.packs, stamped, periodLevel)
+                    const mergedNames = mergeNames(incoming.names, names)
+                    await exportAttendanceExcel(mergedPacks, mergedNames, periodLevel, packStamp(), {
+                      restamp: false,
+                      presentDays: incoming.presentDays,
+                    })
+                  } catch (e) {
+                    const dialog = e instanceof ExcelLimitError ? e.message : fileUploadDialogMessage(e)
+                    if (dialog) setLimitMessage(dialog)
+                  }
                 }
                 input.click()
               }}
@@ -341,6 +350,7 @@ export function AttendanceTool({ onHome }: Props) {
           onClearPacks={() => setPacks([])}
         />
       </main>
+      {limitMessage ? <UploadLimitNotice message={limitMessage} onClose={() => setLimitMessage(null)} /> : null}
     </div>
   )
 }

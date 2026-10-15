@@ -1,4 +1,4 @@
-export type ToolId = 'plates' | 'badges' | 'seats' | 'attendance' | 'snap-sheet' | 'sweep'
+export type ToolId = 'plates' | 'badges' | 'seats' | 'attendance' | 'snap-sheet' | 'sweep' | 'bus' | 'rooms'
 
 export interface ToolTileData {
   id: string
@@ -13,46 +13,59 @@ export const HOME_TOOLS: ToolTileData[] = [
   {
     id: 'plates',
     title: '桌牌製作神器',
-    hint: '三角桌牌，上傳名冊後編輯列印',
+    hint: '印出來直接折，做桌牌就是這麼簡單！',
     enabled: true,
     toolId: 'plates',
   },
   {
     id: 'seats',
     title: '排座位大師',
-    hint: '匯入名冊，設定教室後拖曳排座',
+    hint: '點一點，拉一拉，排座位也能很直觀。',
     enabled: true,
     toolId: 'seats',
   },
   {
     id: 'badges',
     title: '名牌製作神器',
-    hint: '平面名牌，上傳名冊後編輯列印',
+    hint: '印出來直接剪，做名牌就是這麼簡單！',
     enabled: true,
     toolId: 'badges',
   },
   {
     id: 'sweep',
     title: '排掃地大師',
-    hint: '匯入名冊，拖曳分配內掃與外掃',
+    hint: '點一點，拉一拉，排掃地也能很直觀。',
     enabled: true,
     toolId: 'sweep',
   },
   {
     id: 'snap-sheet',
     title: '拍拍成表',
-    hint: '拍照辨識成表，可改錯並匯出 Excel',
-    enabled: true,
+    hint: '親愛的，我把照片變成電子檔了。',
+    enabled: false,
     toolId: 'snap-sheet',
   },
   { id: 'cyber-book', title: '賽博聯絡簿', hint: '即將推出', enabled: false },
   {
     id: 'attendance',
     title: '出缺席快拉',
-    hint: '座號、假由、節次卡片快速紀錄',
+    hint: '拉積木，快速彙整點名表。',
     enabled: true,
     toolId: 'attendance',
   },
-  { id: 'soon-8', title: '即將推出', hint: '更多工具籌備中', enabled: false },
+  {
+    id: 'bus',
+    title: '遊覽車大師',
+    hint: '點一點，拉一拉，排車位也能很直觀。',
+    enabled: true,
+    toolId: 'bus',
+  },
+  {
+    id: 'rooms',
+    title: '排房間大師',
+    hint: '點一點，拉一拉，排房間也能很直觀。',
+    enabled: true,
+    toolId: 'rooms',
+  },
   { id: 'soon-9', title: '即將推出', hint: '更多工具籌備中', enabled: false },
 ]

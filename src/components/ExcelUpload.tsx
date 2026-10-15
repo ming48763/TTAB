@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
-import { parseExcelFile } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
 import type { ColumnMapping, StudentRow } from '../types'
+import { UploadLimitNotice } from './UploadLimitNotice'
 
 interface Props {
   lead?: string
@@ -22,15 +23,18 @@ export function ExcelUpload({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function handleFile(file: File) {
     setError(null)
+    setLimitMessage(null)
     setBusy(true)
     try {
+      assertXlsxSize(file)
       const buffer = await file.arrayBuffer()
-      const parsed = parseExcelFile(buffer)
+      const parsed = await parseExcelFile(buffer)
       onLoaded({
         fileName: file.name,
         headers: parsed.headers,
@@ -38,7 +42,9 @@ export function ExcelUpload({
         mappings: parsed.mappings,
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '讀取失敗')
+      const dialog = e instanceof ExcelLimitError ? e.message : fileUploadDialogMessage(e)
+      if (dialog) setLimitMessage(dialog)
+      else setError(e instanceof Error ? e.message : '讀取失敗')
     } finally {
       setBusy(false)
     }
@@ -89,6 +95,7 @@ export function ExcelUpload({
 
         {error && <p className="form-error">{error}</p>}
       </div>
+      {limitMessage ? <UploadLimitNotice message={limitMessage} onClose={() => setLimitMessage(null)} /> : null}
     </div>
   )
 }

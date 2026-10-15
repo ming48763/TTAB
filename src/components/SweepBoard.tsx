@@ -911,11 +911,9 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
               ) : null}
               <div className="sweep-zone-list">
                 {poolStudents.length === 0 ? (
-                  <p className="muted">
-                    {allFolders(assignments).some((f) => f.members.length > 0)
-                      ? '學生都已進資料夾。'
-                      : '將學生拖進左側資料夾。'}
-                  </p>
+                  allFolders(assignments).some((folder) => folder.members.length > 0) ? null : (
+                    <p className="muted">將學生拖進左側資料夾。</p>
+                  )
                 ) : (
                   poolStudents.map((row) => renderStudentCard(studentKey(row)))
                 )}
@@ -1007,7 +1005,6 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           <div className="seat-notice-card sweep-export-card">
             <h3 id="sweep-export-title">匯出掃地工作表</h3>
             <label className="sweep-export-field">
-              標題
               <span className="sweep-export-name">
                 <input
                   value={exportPrefix}
@@ -1018,12 +1015,11 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                 <span>{SWEEP_SHEET_SUFFIX}</span>
               </span>
             </label>
-            <p className="sweep-export-preview">{exportTitle}</p>
             <div className="seat-notice-actions">
               <button type="button" className="btn" onClick={() => setExportOpen(false)} disabled={exportBusy !== null}>
                 取消
               </button>
-              <button type="button" className="btn" onClick={() => void downloadExcel()} disabled={exportBusy !== null}>
+              <button type="button" className="btn primary" onClick={() => void downloadExcel()} disabled={exportBusy !== null}>
                 {exportBusy === 'xlsx' ? '匯出中…' : 'Excel'}
               </button>
               <button type="button" className="btn primary" onClick={downloadPdf} disabled={exportBusy !== null}>

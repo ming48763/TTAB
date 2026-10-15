@@ -537,30 +537,44 @@ export function applyBadgeZones(
   faceHeightMm: number,
   sizePct: number,
   fontScale: number,
+  lift = 50,
+  keepIds?: ReadonlySet<string>,
 ): LayoutItem[] {
   const scale = (sizePct / 100) * fontScale
   const small = Math.max(3.2, Math.round(7 * scale * 10) / 10)
   const name = Math.max(5, Math.round(18 * scale * 10) / 10)
   const zoneFor = (item: LayoutItem) => zoneOf[item.id] ?? null
   const ordered = (['top', 'mid', 'bot'] as const).flatMap((zone) =>
-    zones[zone].on ? items.filter((item) => zoneFor(item) === zone) : [],
+    zones[zone].on ? items.filter((item) => zoneFor(item) === zone && !keepIds?.has(item.id)) : [],
   )
-  const heights = ordered.map((item) => {
+  const roomTop = faceHeightMm * 0.2
+  const roomBottom = faceHeightMm * 0.8
+  const room = Math.max(6, roomBottom - roomTop)
+  let heights = ordered.map((item) => {
     const zone = zoneFor(item)
     const zoneScale = zone ? (zones[zone].sizePct ?? 100) / 100 : 1
     const base = zone === 'mid' ? name : small
     if (item.kind === 'image') return Math.max(6, Math.round(base * 1.7 * zoneScale * 10) / 10)
     return Math.max(2.4, Math.round(base * zoneScale * 10) / 10)
   })
-  const content = heights.reduce((sum, height) => sum + height, 0)
-  let gapMm = Math.max(1.2, Math.round(2.6 * scale * 10) / 10)
-  const gaps = Math.max(0, ordered.length - 1)
-  const room = faceHeightMm * 0.88 - content
-  if (gaps > 0 && content + gapMm * gaps > faceHeightMm * 0.88) {
-    gapMm = Math.max(0.5, room / gaps)
+  let content = heights.reduce((sum, height) => sum + height, 0)
+  if (content > room * 0.92 && content > 0) {
+    const fit = (room * 0.92) / content
+    heights = heights.map((height) => Math.max(2, Math.round(height * fit * 10) / 10))
+    content = heights.reduce((sum, height) => sum + height, 0)
   }
+  const gaps = Math.max(0, ordered.length - 1)
+  const preferredGap = Math.max(1.2, Math.round(2.6 * scale * 10) / 10)
+  const gapMm = gaps > 0 ? Math.min(preferredGap, Math.max(0.3, (room - content) / gaps)) : 0
   const total = content + gapMm * gaps
-  let cursor = (faceHeightMm - total) / 2
+  const lineBleed = (height: number) => (height * (1.15 - 1)) / 2
+  const first = heights[0] ?? 0
+  const last = heights[heights.length - 1] ?? 0
+  const visualSpan = total + lineBleed(first) + lineBleed(last)
+  const free = room - visualSpan
+  const shift = Math.min(100, Math.max(0, lift))
+  const visualTop = free >= 0 ? roomTop + (free * shift) / 100 : faceHeightMm / 2 - visualSpan / 2
+  let cursor = visualTop + lineBleed(first)
   const placed = new Map<string, Pick<LayoutItem, 'x' | 'y' | 'fontSizeMm' | 'align' | 'fontWeight'>>()
   ordered.forEach((item, index) => {
     const zone = zoneFor(item)
@@ -579,6 +593,7 @@ export function applyBadgeZones(
     })
   })
   return items.map((item) => {
+    if (keepIds?.has(item.id)) return { ...item, hidden: false }
     const place = placed.get(item.id)
     if (!place) return { ...item, hidden: true }
     return { ...item, hidden: false, ...place }

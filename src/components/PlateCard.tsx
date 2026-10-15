@@ -1,10 +1,91 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { collectGroupIds, DESK_FOLD_PCTS, resolveClickSelection, totalCardHeightMm, totalCardWidthMm, type AlignAction } from '../lib/paper'
 import type { LayoutItem, LayoutSettings, StudentRow } from '../types'
-import { FONT_CHOICES, FONT_WEIGHT_LABELS, clampFontWeight, fontChoice } from '../types'
+import { fixedBadgeLook } from '../lib/badgeLook'
+import { DEFAULT_BADGE_LOOK, FONT_CHOICES, FONT_WEIGHT_LABELS, clampFontWeight, fontChoice } from '../types'
+import { removeImageBackground } from '../lib/imageCutout'
+import { BadgeLookMark } from './BadgeLookMark'
+import { ImageFrameDialog } from './ImageFrameDialog'
 import MiniColorPicker from './MiniColorPicker'
 
+function ItemMiniBar({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<{ y: 'above' | 'below'; x: number }>({ y: 'above', x: 0 })
+
+  useLayoutEffect(() => {
+    const bar = ref.current
+    if (!bar) return
+    const update = () => {
+      const stage = bar.closest('.editor-stage')
+      const item = bar.parentElement
+      if (!stage || !item) return
+      const stageBox = stage.getBoundingClientRect()
+      const itemBox = item.getBoundingClientRect()
+      const barBox = bar.getBoundingClientRect()
+      const gap = 10
+      const aboveTop = itemBox.top - gap - barBox.height
+      const belowBottom = itemBox.bottom + gap + barBox.height
+      let y: 'above' | 'below' = 'above'
+      if (aboveTop < stageBox.top && belowBottom <= stageBox.bottom) y = 'below'
+      else if (aboveTop < stageBox.top && belowBottom > stageBox.bottom) {
+        y = stageBox.bottom - itemBox.bottom > itemBox.top - stageBox.top ? 'below' : 'above'
+      }
+      const scale = itemBox.width / Math.max(item.offsetWidth, 1)
+      const defaultLeft = itemBox.right - barBox.width
+      let left = defaultLeft
+      if (barBox.width <= stageBox.width) {
+        if (left + barBox.width > stageBox.right) left = stageBox.right - barBox.width
+        if (left < stageBox.left) left = stageBox.left
+      }
+      const x = (left - defaultLeft) / scale
+      const shown = bar.getBoundingClientRect()
+      const roomAbove = shown.top - stageBox.top
+      const roomBelow = stageBox.bottom - shown.bottom
+      bar.querySelectorAll<HTMLElement>(':scope > .toolbar-drop').forEach((drop) => {
+        drop.classList.toggle('opens-down', roomAbove < 240 && roomBelow > roomAbove)
+      })
+      bar.querySelectorAll<HTMLElement>('.opens-right').forEach((drop) => {
+        const box = drop.getBoundingClientRect()
+        drop.classList.toggle('opens-left', box.right + 280 > stageBox.right && box.left - 280 >= stageBox.left)
+      })
+      setPlace((prev) => (prev.y === y && Math.abs(prev.x - x) < 0.5 ? prev : { y, x }))
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('pointermove', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('pointermove', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={`item-mini-bar${place.y === 'below' ? ' is-below' : ''}`}
+      style={{
+        fontSize: 14,
+        lineHeight: 1.2,
+        fontWeight: 500,
+        transform: place.y === 'below' ? `translate(${place.x}px, 10px)` : `translate(${place.x}px, calc(-100% - 10px))`,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  )
+}
+
 function PlateDecor({ settings }: { settings: LayoutSettings }) {
+  if (settings.mode === 'badge-single') {
+    const look = fixedBadgeLook(settings.badgeLook ?? DEFAULT_BADGE_LOOK)
+    if (look.style === 'none') return null
+    return <BadgeLookMark look={look} className="plate-decor badge-look" />
+  }
   const decor = settings.cardDecor ?? {
     kind: 'none' as const,
     color: '#0f6e56',
@@ -112,6 +193,32 @@ export function PlateFace({
   const selectedSet = new Set(selectedIds)
   const highlightSet = new Set(highlightIds)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [frameItemId, setFrameItemId] = useState<string | null>(null)
+  const [alignFlash, setAlignFlash] = useState<{ id: string; side: 'left' | 'center' | 'right'; tick: number } | null>(null)
+  const alignFlashTimer = useRef<number | null>(null)
+
+  function flashTextAlign(item: LayoutItem, align: 'left' | 'center' | 'right') {
+    if (align !== item.align) {
+      const face = faceRef?.current
+      const el = face
+        ? [...face.querySelectorAll<HTMLElement>('[data-item-id]')].find((node) => node.dataset.itemId === item.id)
+        : undefined
+      let x = item.x
+      if (el && face) {
+        const faceBox = face.getBoundingClientRect()
+        const box = el.getBoundingClientRect()
+        const width = faceBox.width || 1
+        const left = ((box.left - faceBox.left) / width) * 100
+        const right = ((box.right - faceBox.left) / width) * 100
+        x = align === 'left' ? left : align === 'right' ? right : (left + right) / 2
+      }
+      onUpdateItem?.(item.id, { align, x })
+    }
+    if (alignFlashTimer.current) window.clearTimeout(alignFlashTimer.current)
+    setAlignFlash({ id: item.id, side: align, tick: Date.now() })
+    alignFlashTimer.current = window.setTimeout(() => setAlignFlash(null), 720)
+  }
+  const frameItem = frameItemId ? settings.items.find((it) => it.id === frameItemId && it.kind === 'image') : null
   const selectedItems = settings.items.filter((it) => selectedSet.has(it.id))
   const groupKeys = new Set(selectedItems.map((it) => it.groupId).filter(Boolean))
   const alignAsCanvas =
@@ -167,7 +274,7 @@ export function PlateFace({
               fontFamily: familyCss,
               color: item.color,
               textAlign: item.align,
-              zIndex: fresh ? 90 : selected ? 80 : index + 1,
+              zIndex: fresh ? 90 : selected ? 40 : index + 1,
               transform:
                 item.align === 'center'
                   ? 'translate(-50%, -50%)'
@@ -195,12 +302,7 @@ export function PlateFace({
             }
           >
             {item.kind === 'image' && item.imageSrc ? (
-              <img
-                src={item.imageSrc}
-                alt=""
-                draggable={false}
-                style={{ height: `${item.fontSizeMm}mm`, width: 'auto', display: 'block' }}
-              />
+              <PlateImage item={item} />
             ) : editingId === item.id && item.kind === 'static' ? (
               <input
                 className="item-edit"
@@ -218,13 +320,11 @@ export function PlateFace({
             ) : (
               text
             )}
+            {alignFlash?.id === item.id && item.kind !== 'image' ? (
+              <span key={alignFlash.tick} className={`align-flash is-${alignFlash.side}`} aria-hidden="true" />
+            ) : null}
             {interactive && !fresh && selectedIds.length >= 2 && selectedIds[selectedIds.length - 1] === item.id && (
-              <div
-                className="item-mini-bar"
-                style={{ fontSize: 14, lineHeight: 1.2, fontWeight: 500 }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-              >
+              <ItemMiniBar>
                 <div className="toolbar-drop">
                   <button type="button" className="item-mini-btn">
                     對齊
@@ -284,16 +384,11 @@ export function PlateFace({
                 <button type="button" className="item-mini-btn is-danger" onClick={onClearSelection}>
                   取消選取
                 </button>
-              </div>
+              </ItemMiniBar>
             )}
             {selected && selectedIds.length === 1 && interactive && !fresh && (
               <>
-                <div
-                  className="item-mini-bar"
-                  style={{ fontSize: 14, lineHeight: 1.2, fontWeight: 500 }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                >
+                <ItemMiniBar>
                   <button
                     type="button"
                     className="item-mini-btn is-danger"
@@ -302,6 +397,29 @@ export function PlateFace({
                   >
                     刪除
                   </button>
+                  {item.kind === 'image' && (
+                    <>
+                      <button
+                        type="button"
+                        className={`item-mini-btn ${item.imageCutout ? 'is-on' : ''}`}
+                        onClick={() => void toggleImageCutout(item, onUpdateItem)}
+                      >
+                        去背
+                      </button>
+                      <button
+                        type="button"
+                        className="item-mini-btn"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const id = item.id
+                          window.setTimeout(() => setFrameItemId(id), 0)
+                        }}
+                      >
+                        外框
+                      </button>
+                    </>
+                  )}
                   {item.kind !== 'image' && (
                     <>
                       <div className="toolbar-drop">
@@ -378,6 +496,34 @@ export function PlateFace({
                           ))}
                         </div>
                       </div>
+                      <div className="toolbar-drop">
+                        <button type="button" className="item-mini-btn" title="對齊">
+                          {item.align === 'left' ? '靠左' : item.align === 'right' ? '靠右' : '置中'}
+                        </button>
+                        <div className="toolbar-drop-menu">
+                          <button
+                            type="button"
+                            className={item.align === 'left' ? 'is-active' : ''}
+                            onClick={() => flashTextAlign(item, 'left')}
+                          >
+                            靠左
+                          </button>
+                          <button
+                            type="button"
+                            className={item.align === 'center' ? 'is-active' : ''}
+                            onClick={() => flashTextAlign(item, 'center')}
+                          >
+                            置中
+                          </button>
+                          <button
+                            type="button"
+                            className={item.align === 'right' ? 'is-active' : ''}
+                            onClick={() => flashTextAlign(item, 'right')}
+                          >
+                            靠右
+                          </button>
+                        </div>
+                      </div>
                     </>
                   )}
                   <div className="toolbar-drop">
@@ -396,7 +542,7 @@ export function PlateFace({
                       </button>
                     </div>
                   </div>
-                </div>
+                </ItemMiniBar>
                 <button
                   type="button"
                   className="font-handle"
@@ -407,13 +553,91 @@ export function PlateFace({
                     onPointerDownItem?.(e, item.id, 'font')
                   }}
                 />
+                {item.kind === 'image' && (
+                  <button
+                    type="button"
+                    className="image-rotate-handle"
+                    aria-label="旋轉"
+                    title="旋轉"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onUpdateItem?.(item.id, { imageRotation: ((item.imageRotation ?? 0) + 90) % 360 })
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden>
+                      <path d="M12 5.2a6.8 6.8 0 1 1-6.1 3.8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                      <path d="M12 2.2 15.4 6 12 8.6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
               </>
             )}
           </div>
         )
       })}
+      {frameItem?.imageSrc
+        ? createPortal(
+            <ImageFrameDialog
+              item={frameItem}
+              onCancel={() => setFrameItemId(null)}
+              onConfirm={(patch) => {
+                onUpdateItem?.(frameItem.id, patch)
+                setFrameItemId(null)
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   )
+}
+
+function PlateImage({ item }: { item: LayoutItem }) {
+  const src = item.imageCutout && item.imageCutoutSrc ? item.imageCutoutSrc : item.imageSrc
+  const rotation = item.imageRotation ?? 0
+  if (item.imageFrame) {
+    return (
+      <div className={`plate-image-frame is-${item.imageFrame}`} style={{ width: `${item.fontSizeMm}mm`, height: `${item.fontSizeMm}mm`, transform: `rotate(${rotation}deg)` }}>
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: `${item.imageFocusX ?? 50}% ${item.imageFocusY ?? 50}%`,
+          }}
+        />
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      draggable={false}
+      style={{ height: `${item.fontSizeMm}mm`, width: 'auto', display: 'block', transform: `rotate(${rotation}deg)` }}
+    />
+  )
+}
+
+async function toggleImageCutout(
+  item: LayoutItem,
+  onUpdateItem?: (id: string, partial: Partial<LayoutItem>) => void,
+) {
+  if (!onUpdateItem || !item.imageSrc) return
+  if (item.imageCutout) {
+    onUpdateItem(item.id, { imageCutout: false })
+    return
+  }
+  if (item.imageCutoutSrc) {
+    onUpdateItem(item.id, { imageCutout: true })
+    return
+  }
+  const imageCutoutSrc = await removeImageBackground(item.imageSrc)
+  onUpdateItem(item.id, { imageCutout: true, imageCutoutSrc })
 }
 
 function FoldGuides({

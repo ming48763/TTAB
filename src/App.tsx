@@ -6,6 +6,8 @@ import { AttendanceTool } from './tools/AttendanceTool'
 import { PlateNameTool } from './tools/PlateNameTool'
 import { SeatingTool } from './tools/SeatingTool'
 import { SnapSheetTool } from './tools/SnapSheetTool'
+import { BusTool } from './tools/BusTool'
+import { RoomTool } from './tools/RoomTool'
 import { SweepTool } from './tools/SweepTool'
 
 export default function App() {
@@ -47,6 +49,14 @@ export default function App() {
 
   if (tool === 'sweep') {
     return <SweepTool onHome={() => setTool(null)} />
+  }
+
+  if (tool === 'bus') {
+    return <BusTool onHome={() => setTool(null)} />
+  }
+
+  if (tool === 'rooms') {
+    return <RoomTool onHome={() => setTool(null)} />
   }
 
   return <HomeIndex onOpenTool={openTool} stats={stats} />

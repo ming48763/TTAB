@@ -76,6 +76,24 @@ export const DEFAULT_CARD_DECOR: CardDecor = {
   lineStyle: 'dashed',
 }
 
+/** Where the badge text block sits. The other part of the card is the style. */
+export type BadgeTextPlace = 'top' | 'mid' | 'bot'
+
+export interface BadgeLook {
+  place: BadgeTextPlace
+  style: string
+  color: string
+  /** 0 keeps the text at the top limit, 100 at the bottom limit. */
+  lift?: number
+}
+
+export const DEFAULT_BADGE_LOOK: BadgeLook = {
+  place: 'mid',
+  style: 'none',
+  color: '#0f6e56',
+  lift: 50,
+}
+
 export type SequenceStyle = 'az' | 'stem' | 'number' | 'page' | 'chinese'
 
 export interface StudentRow {
@@ -117,6 +135,15 @@ export interface LayoutItem {
   text: string
   /** Data URL or path when kind === 'image' */
   imageSrc?: string
+  /** Transparent version of imageSrc, used when imageCutout is on */
+  imageCutout?: boolean
+  imageCutoutSrc?: string
+  /** Clipped frame. Focus is which point of the picture sits in the frame, 0–100. */
+  imageFrame?: 'circle' | 'rounded' | 'square' | 'arch'
+  imageFocusX?: number
+  imageFocusY?: number
+  /** Clockwise degrees */
+  imageRotation?: number
   /** Position as % of face width / face height (0–100) */
   x: number
   y: number
@@ -156,6 +183,8 @@ export interface LayoutSettings {
   paperGuide: PaperSizeId | 'none'
   items: LayoutItem[]
   cardDecor: CardDecor
+  /** Badge text band and the decoration in the remaining area. */
+  badgeLook?: BadgeLook
   /** One-shot: editor optically centers these items then clears the field */
   pendingCenterIds?: string[]
 }
@@ -193,6 +222,7 @@ export const DEFAULT_BADGE: LayoutSettings = {
   paperGuide: 'A4',
   items: [],
   cardDecor: DEFAULT_CARD_DECOR,
+  badgeLook: DEFAULT_BADGE_LOOK,
 }
 
 export const FONT_WEIGHT_LABELS: Record<number, string> = {
