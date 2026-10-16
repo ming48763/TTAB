@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { BusRolePicker } from './BusRolePicker'
 import { BrandMark } from './BrandMark'
+import { captureSheet } from '../lib/captureSheet'
+import { savePdfFile } from '../lib/savePdf'
 import { roomSlotColumns, type RoomUnit } from '../lib/roomPlan'
 import {
   ROOM_SHEET_SUFFIX,
@@ -112,11 +114,11 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))))
       if (cancelled) return
       try {
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+        const { jsPDF } = await import('jspdf')
         const sheet = host.querySelector<HTMLElement>('.sweep-export-page')
         if (!sheet) return
-        const canvas = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', logging: false })
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+        const canvas = await captureSheet(sheet)
         const img = canvas.toDataURL('image/jpeg', 0.93)
         const pageW = 210
         const pageH = 297
@@ -126,7 +128,7 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
           const fit = pageH / imgH
           pdf.addImage(img, 'JPEG', (pageW - pageW * fit) / 2, 0, pageW * fit, pageH)
         }
-        pdf.save(`${roomFileBase(pdfJob)}.pdf`)
+        savePdfFile(pdf, `${roomFileBase(pdfJob)}.pdf`)
         if (!cancelled) {
           setPdfJob(null)
           setExportBusy(null)

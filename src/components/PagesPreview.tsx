@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { captureSheet } from '../lib/captureSheet'
+import { savePdfFile } from '../lib/savePdf'
 import { fitPreviewRow } from '../lib/fitPreviewChrome'
 import { bestBadgePack, chunk, resolvePrintPaper } from '../lib/layout'
 import {
@@ -172,7 +174,7 @@ export function PagesPreview({
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))
       if (cancelled) return
       try {
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+        const { jsPDF } = await import('jspdf')
         const sheets = Array.from(host.querySelectorAll<HTMLElement>('.print-page'))
         if (!sheets.length) return
         const w = paper.paperWidthMm
@@ -185,18 +187,15 @@ export function PagesPreview({
         })
         for (let i = 0; i < sheets.length; i++) {
           if (cancelled) return
-          const canvas = await html2canvas(sheets[i], {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false,
-          })
+          const canvas = await captureSheet(sheets[i])
           const img = canvas.toDataURL('image/jpeg', 0.93)
           if (i > 0) pdf.addPage([w, h], landscape ? 'landscape' : 'portrait')
           pdf.addImage(img, 'JPEG', 0, 0, w, h)
         }
         const layoutLabel = isBadge ? `${grid.cols}x${grid.rows}` : imposition.replace('x', 'X')
-        pdf.save(`${title}_${paper.size}_${dirLabel}_${layoutLabel}.pdf`)
+        savePdfFile(pdf, `${title}_${paper.size}_${dirLabel}_${layoutLabel}.pdf`)
+      } catch (err) {
+        console.error(err)
       } finally {
         if (!cancelled) setPdfBusy(false)
       }
@@ -269,10 +268,18 @@ export function PagesPreview({
           <button type="button" className="btn" onClick={onClose}>
             返回編輯
           </button>
-          <button type="button" className="btn" disabled={pdfBusy} onClick={downloadPdf}>
-            {pdfBusy ? '匯出中…' : '下載為PDF'}
+          <button
+            type="button"
+            className={`btn is-pdf${pdfBusy ? ' is-exporting' : ''}`}
+            disabled={pdfBusy}
+            onClick={downloadPdf}
+          >
+            <span className="btn-swap">
+              <span>下載為PDF</span>
+              <span>匯出中…</span>
+            </span>
           </button>
-          <button type="button" className="btn primary" onClick={onPrint}>
+          <button type="button" className="btn primary is-print" onClick={onPrint}>
             開始列印
           </button>
         </div>

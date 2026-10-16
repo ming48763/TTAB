@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { StepRail } from '../components/StepRail'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile, swallowFollowingClick } from '../lib/excel'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import {
   applyStats,
@@ -290,7 +290,13 @@ export function SnapSheetTool({ onHome }: Props) {
                   </div>
                   <div
                     className="dropzone snap-dropzone"
-                    onClick={() => rosterRef.current?.click()}
+                    onClick={() => {
+                      const input = rosterRef.current
+                      if (!input) return
+                      input.addEventListener('change', () => swallowFollowingClick(), { once: true })
+                      input.addEventListener('cancel', () => swallowFollowingClick(), { once: true })
+                      input.click()
+                    }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault()
@@ -300,7 +306,14 @@ export function SnapSheetTool({ onHome }: Props) {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') rosterRef.current?.click()
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        const input = rosterRef.current
+                        if (!input) return
+                        input.addEventListener('change', () => swallowFollowingClick(), { once: true })
+                        input.addEventListener('cancel', () => swallowFollowingClick(), { once: true })
+                        input.click()
+                      }
                     }}
                   >
                     <span className="dropzone-title">拖曳檔案到這裡，或點擊選擇</span>

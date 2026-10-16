@@ -18,7 +18,7 @@ import {
   weekdayMon0FromIso,
   type AttDateMode,
 } from '../lib/attendanceExport'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, swallowFollowingClick } from '../lib/excel'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import { uid } from '../types'
 
@@ -216,7 +216,7 @@ export function AttendanceTool({ onHome }: Props) {
                 </div>
               </div>
             </div>
-            <button type="button" className="toolbar-drop-btn" onClick={() => setExportOpen(true)}>
+            <button type="button" className="toolbar-drop-btn is-export" onClick={() => setExportOpen(true)}>
               匯出
             </button>
           </div>
@@ -235,10 +235,11 @@ export function AttendanceTool({ onHome }: Props) {
               type="button"
               className="btn"
               onClick={() => {
-                setExportOpen(false)
                 const input = document.createElement('input')
                 input.type = 'file'
                 input.accept = '.xlsx,.xls'
+                input.addEventListener('change', () => swallowFollowingClick(), { once: true })
+                input.addEventListener('cancel', () => swallowFollowingClick(), { once: true })
                 input.onchange = async () => {
                   const file = input.files?.[0]
                   if (!file) return
@@ -262,6 +263,7 @@ export function AttendanceTool({ onHome }: Props) {
                   }
                 }
                 input.click()
+                setExportOpen(false)
               }}
             >
               本周已有紀錄，匯入舊檔

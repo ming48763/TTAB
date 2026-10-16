@@ -109,9 +109,10 @@ function doorGrid(door: ClassroomDoor, ring: WallRing): CSSProperties {
   }
 }
 
-function packToCenter<T>(items: T[], keep: (item: T) => boolean): (T | null)[] {
+function packToCenter<T>(items: T[], keep: (item: T) => boolean, towardEnd = false): (T | null)[] {
   const kept = items.filter(keep)
-  const start = Math.floor((items.length - kept.length) / 2)
+  const gap = items.length - kept.length
+  const start = towardEnd ? Math.ceil(gap / 2) : Math.floor(gap / 2)
   const out: (T | null)[] = Array.from({ length: items.length }, () => null)
   kept.forEach((item, i) => {
     out[start + i] = item
@@ -329,7 +330,7 @@ export function SeatingClassroom({
             const filledSeats = unitSeats.filter((s) => seatNames[s.id])
             return { r, c, unitSeats, filledSeats }
           })
-          const packed = vacancy === 'auto' ? packToCenter(stack, (u) => u.filledSeats.length > 0) : stack
+          const packed = vacancy === 'auto' ? packToCenter(stack, (u) => u.filledSeats.length > 0, teacherView) : stack
           return packed.map((unit, displayRow) => {
             const unitSeats = unit?.unitSeats ?? []
             const filledSeats = unit?.filledSeats ?? []

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile, swallowFollowingClick } from '../lib/excel'
 import type { ColumnMapping, StudentRow } from '../types'
 import { UploadLimitNotice } from './UploadLimitNotice'
 
@@ -26,6 +26,14 @@ export function ExcelUpload({
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  function pickFile() {
+    const input = inputRef.current
+    if (!input) return
+    input.addEventListener('change', () => swallowFollowingClick(), { once: true })
+    input.addEventListener('cancel', () => swallowFollowingClick(), { once: true })
+    input.click()
+  }
 
   async function handleFile(file: File) {
     setError(null)
@@ -71,11 +79,14 @@ export function ExcelUpload({
             const file = e.dataTransfer.files?.[0]
             if (file) void handleFile(file)
           }}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => pickFile()}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              pickFile()
+            }
           }}
         >
           <input

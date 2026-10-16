@@ -38,6 +38,10 @@ import { BrandMark } from './BrandMark'
 import { PlateCard } from './PlateCard'
 import { PrintPreview } from './PrintPreview'
 import { PagesPreview } from './PagesPreview'
+
+function isCompactScreen() {
+  return window.matchMedia('(max-width: 899px)').matches
+}
 import { StandPreview } from './StandPreview'
 import type { PrintImposition } from '../lib/printLayout'
 
@@ -53,6 +57,8 @@ interface Props {
   onBack: () => void
   onHome?: () => void
 }
+
+const ITEM_LIMIT = 5
 
 const ALL_MODES: { id: PlateMode; title: string }[] = [
   { id: 'desk', title: '桌牌' },
@@ -188,6 +194,7 @@ export function LayoutEditor({
   const [sheetSize, setSheetSize] = useState<PaperSizeId>('A4')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [itemLimit, setItemLimit] = useState(false)
   const pastRef = useRef<LayoutSettings[]>([])
   const futureRef = useRef<LayoutSettings[]>([])
   const settingsRef = useRef(settings)
@@ -380,7 +387,16 @@ export function LayoutEditor({
     })
   }
 
+  function allowAnotherItem() {
+    if (settingsRef.current.items.length >= ITEM_LIMIT) {
+      setItemLimit(true)
+      return false
+    }
+    return true
+  }
+
   function addStatic() {
+    if (!allowAnotherItem()) return
     const id = uid('static')
     commit({
       ...settings,
@@ -405,8 +421,13 @@ export function LayoutEditor({
   }
 
   function addImage(file: File) {
+    if (!allowAnotherItem()) return
     const reader = new FileReader()
     reader.onload = () => {
+      if (settingsRef.current.items.length >= ITEM_LIMIT) {
+        setItemLimit(true)
+        return
+      }
       const id = uid('image')
       const current = settingsRef.current
       commit({
@@ -434,6 +455,7 @@ export function LayoutEditor({
   }
 
   function addField() {
+    if (!allowAnotherItem()) return
     const first = activeFields[0]
     if (!first) return
     const id = uid('field')
@@ -642,6 +664,12 @@ export function LayoutEditor({
       const el = e.target as HTMLElement | null
       if (!el?.closest) return
       if (el.closest('.item-mini-bar, .font-handle, .image-rotate-handle, .image-frame-dialog, .plate-item')) return
+      if (
+        isCompactScreen() &&
+        el.closest('button, a, input, textarea, select, label, .editor-toolbar, .editor-subbar, .toolbar-drop, .canvas-corner-actions')
+      ) {
+        return
+      }
       setSelectedIds([])
       setFreshId(null)
     }
@@ -650,7 +678,7 @@ export function LayoutEditor({
   }, [selectedIds.length])
 
   function onStagePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (!fitMode || e.button !== 0) return
+    if (!fitMode || e.button !== 0 || isCompactScreen()) return
     const el = e.target as HTMLElement
     if (
       el.closest(
@@ -786,19 +814,6 @@ export function LayoutEditor({
                     </label>
                   </div>
                 )}
-                <label className="badge-look-lift">
-                  <span>靠上</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={badgeLook.lift ?? 50}
-                    aria-label="垂直位置"
-                    onChange={(e) => patchBadgeLook({ lift: Number(e.target.value) })}
-                  />
-                  <span>靠下</span>
-                </label>
               </div>
             </div>
           </div>
@@ -1261,6 +1276,25 @@ export function LayoutEditor({
           onPrint={() => window.print()}
         />
       )}
+
+      {itemLimit ? (
+        <div className="seat-notice" role="presentation" onClick={() => setItemLimit(false)}>
+          <div
+            className="seat-notice-card"
+            role="dialog"
+            aria-labelledby="item-limit-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="item-limit-title">已達上限</h3>
+            <p>物件最多 5 個。</p>
+            <div className="seat-notice-actions">
+              <button type="button" className="btn primary" onClick={() => setItemLimit(false)}>
+                知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

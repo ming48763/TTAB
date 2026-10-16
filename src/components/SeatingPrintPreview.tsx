@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SeatingClassroom } from './SeatingClassroom'
+import { captureSheet } from '../lib/captureSheet'
+import { savePdfFile } from '../lib/savePdf'
 import { fitPreviewRow } from '../lib/fitPreviewChrome'
 import type { ClassroomDoor, RoomShape, SeatGroupMode, SeatInkStyle, SeatSpot } from '../lib/seating'
 import { SEAT_INK_STYLES } from '../lib/seating'
@@ -27,75 +29,6 @@ function dateStamp() {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
-}
-
-const PAINT_PROPS = [
-  'color',
-  'backgroundColor',
-  'borderTopColor',
-  'borderRightColor',
-  'borderBottomColor',
-  'borderLeftColor',
-  'textDecorationColor',
-  'webkitTextStrokeColor',
-] as const
-
-function sampleRgba(ctx: CanvasRenderingContext2D, raw: string) {
-  ctx.clearRect(0, 0, 1, 1)
-  ctx.fillStyle = raw
-  ctx.fillRect(0, 0, 1, 1)
-  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
-  if (a >= 255) return `rgb(${r}, ${g}, ${b})`
-  return `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 1000) / 1000})`
-}
-
-function replaceModernColor(ctx: CanvasRenderingContext2D, value: string) {
-  let out = ''
-  for (let i = 0; i < value.length; i++) {
-    const head = /^(?:color-mix|color|oklch|oklab|lab|lch)\(/.exec(value.slice(i))
-    if (!head) {
-      out += value[i]
-      continue
-    }
-    let depth = 0
-    let j = i
-    for (; j < value.length; j++) {
-      if (value[j] === '(') depth++
-      else if (value[j] === ')') {
-        depth--
-        if (depth === 0) {
-          j++
-          break
-        }
-      }
-    }
-    out += sampleRgba(ctx, value.slice(i, j))
-    i = j - 1
-  }
-  return out
-}
-
-/** html2canvas 1.4 cannot parse color() / color-mix() from computed styles. */
-function bakePaint(root: HTMLElement) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 1
-  canvas.height = 1
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return
-  const nodes = [root, ...root.querySelectorAll<HTMLElement>('*')]
-  for (const el of nodes) {
-    const cs = getComputedStyle(el)
-    for (const prop of PAINT_PROPS) {
-      const raw = cs[prop]
-      if (!raw || !raw.includes('color(')) continue
-      el.style[prop] = sampleRgba(ctx, raw)
-    }
-    for (const prop of ['boxShadow', 'textShadow', 'backgroundImage'] as const) {
-      const raw = cs[prop]
-      if (!raw || raw === 'none' || !raw.includes('color(')) continue
-      el.style[prop] = replaceModernColor(ctx, raw)
-    }
-  }
 }
 
 function RoomPage({
@@ -234,10 +167,7 @@ export function SeatingPrintPreview({
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))
       if (cancelled) return
       try {
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-          import('html2canvas'),
-          import('jspdf'),
-        ])
+        const { jsPDF } = await import('jspdf')
         const sheets = Array.from(host.querySelectorAll<HTMLElement>('.seat-print-pdf-page'))
         if (!sheets.length) return
         const landscape = paperDir === 'landscape'
@@ -248,18 +178,12 @@ export function SeatingPrintPreview({
         })
         for (let i = 0; i < sheets.length; i++) {
           if (cancelled) return
-          bakePaint(sheets[i])
-          const canvas = await html2canvas(sheets[i], {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false,
-          })
+          const canvas = await captureSheet(sheets[i])
           const img = canvas.toDataURL('image/jpeg', 0.93)
           if (i > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait')
           pdf.addImage(img, 'JPEG', 0, 0, paper.w, paper.h)
         }
-        pdf.save(`排座位大師_座位表_${dateStamp()}.pdf`)
+        savePdfFile(pdf, `排座位大師_座位表_${dateStamp()}.pdf`)
       } catch (err) {
         console.error(err)
       } finally {
@@ -383,8 +307,16 @@ export function SeatingPrintPreview({
           <button type="button" className="btn" onClick={onClose}>
             返回編輯
           </button>
-          <button type="button" className="btn" disabled={pdfBusy} onClick={downloadPdf}>
-            {pdfBusy ? '匯出中…' : '下載為PDF'}
+          <button
+            type="button"
+            className={`btn${pdfBusy ? ' is-exporting' : ''}`}
+            disabled={pdfBusy}
+            onClick={downloadPdf}
+          >
+            <span className="btn-swap">
+              <span>下載為PDF</span>
+              <span>匯出中…</span>
+            </span>
           </button>
           <button type="button" className="btn primary" onClick={() => window.print()}>
             開始列印

@@ -1,7 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { installTouchDrag } from './lib/touchDrag'
 import './index.css'
+
+installTouchDrag()
 
 const UI_SCALE = 1.5
 

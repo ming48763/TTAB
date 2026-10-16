@@ -5,6 +5,42 @@ import { totalCardHeightMm, totalCardWidthMm } from '../lib/paper'
 import type { LayoutSettings, PaperSizeId, StudentRow } from '../types'
 import { PlateCard } from './PlateCard'
 
+function BadgeCuts({
+  pack,
+  cardW,
+  cardH,
+}: {
+  pack: { cols: number; rows: number; marginMm: number; gapMm: number; paperWidthMm: number; paperHeightMm: number }
+  cardW: number
+  cardH: number
+}) {
+  if (pack.cols < 2 && pack.rows < 2) return null
+  const contentW = pack.cols * cardW + Math.max(0, pack.cols - 1) * pack.gapMm
+  const contentH = pack.rows * cardH + Math.max(0, pack.rows - 1) * pack.gapMm
+  const innerW = pack.paperWidthMm - pack.marginMm * 2
+  const innerH = pack.paperHeightMm - pack.marginMm * 2
+  const originX = pack.marginMm + Math.max(0, (innerW - contentW) / 2)
+  const originY = pack.marginMm + Math.max(0, (innerH - contentH) / 2)
+  return (
+    <div className="print-cuts" aria-hidden>
+      {Array.from({ length: Math.max(0, pack.cols - 1) }, (_, i) => (
+        <span
+          key={`v-${i}`}
+          className="print-cut is-v"
+          style={{ left: `${originX + (i + 1) * cardW + i * pack.gapMm + pack.gapMm / 2}mm` }}
+        />
+      ))}
+      {Array.from({ length: Math.max(0, pack.rows - 1) }, (_, i) => (
+        <span
+          key={`h-${i}`}
+          className="print-cut is-h"
+          style={{ top: `${originY + (i + 1) * cardH + i * pack.gapMm + pack.gapMm / 2}mm` }}
+        />
+      ))}
+    </div>
+  )
+}
+
 interface Props {
   settings: LayoutSettings
   students: StudentRow[]
@@ -40,6 +76,7 @@ export function PrintSheet({ settings, students, imposition, sheetSize = 'A4', c
             {student ? <PlateCard settings={settings} student={student} /> : null}
           </div>
         ))}
+        <BadgeCuts pack={pack} cardW={cardW} cardH={cardH} />
       </section>
     )
   }

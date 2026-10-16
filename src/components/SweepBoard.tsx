@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { BrandMark } from './BrandMark'
+import { captureSheet } from '../lib/captureSheet'
+import { savePdfFile } from '../lib/savePdf'
 import { studentCardLines, studentKey } from '../lib/seating'
 import {
   buildSweepPages,
@@ -82,7 +84,7 @@ function taskTitle(groupLabel: string, item: string) {
   return `${groupLabel}·${item}`
 }
 
-const DUP_SUFFIX = /(（重複）|\(重複\))(\d*)$/
+const DUP_SUFFIX = /[(（]重複\d*[)）]$/
 
 function nextGroupRowTitle(group: string, folders: SweepFolder[]) {
   const used = new Set<number>()
@@ -290,16 +292,13 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))))
       if (cancelled) return
       try {
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
+        const { jsPDF } = await import('jspdf')
         const sheets = Array.from(host.querySelectorAll<HTMLElement>('.sweep-export-page'))
+        if (!sheets.length) return
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
         for (let i = 0; i < sheets.length; i += 1) {
           if (cancelled) return
-          const canvas = await html2canvas(sheets[i], {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            logging: false,
-          })
+          const canvas = await captureSheet(sheets[i])
           const img = canvas.toDataURL('image/jpeg', 0.93)
           if (i > 0) pdf.addPage('a4', 'portrait')
           const pageW = 210
@@ -311,7 +310,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             pdf.addImage(img, 'JPEG', (pageW - pageW * fit) / 2, 0, pageW * fit, pageH)
           }
         }
-        pdf.save(`${sweepFileBase(pdfJob)}.pdf`)
+        savePdfFile(pdf, `${sweepFileBase(pdfJob)}.pdf`)
         if (!cancelled) {
           setPdfJob(null)
           setExportBusy(null)

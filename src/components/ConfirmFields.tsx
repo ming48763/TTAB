@@ -77,6 +77,8 @@ export function ConfirmFields({
     onChangeMappings(mappings.map((m, i) => (i === index ? { ...m, ...patch } : m)))
   }
 
+  const STATIC_LABEL_MAX = 3
+
   function updateStatic(id: string, text: string) {
     onChangeExtras({
       ...extras,
@@ -97,6 +99,7 @@ export function ConfirmFields({
   }
 
   function addStatic() {
+    if (extras.staticLabels.length >= STATIC_LABEL_MAX) return
     const next: ExtraStaticLabel = { id: uid('extra'), text: '' }
     onChangeExtras({
       ...extras,
@@ -137,6 +140,70 @@ export function ConfirmFields({
     : activeCount > 0
   const previewWrapRef = useRef<HTMLDivElement>(null)
   const previewBarRef = useRef<HTMLDivElement>(null)
+  const extraGridRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const grid = extraGridRef.current
+    if (!grid) return
+    const phone = window.matchMedia(
+      '(max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px))',
+    )
+    const cards = () => [...grid.querySelectorAll<HTMLElement>(':scope > .extra-card')]
+    const contentBox = (el: HTMLElement): number => {
+      const style = getComputedStyle(el)
+      const gap = Number.parseFloat(style.rowGap || '0') || 0
+      const pad = (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0)
+      const kids = [...el.children] as HTMLElement[]
+      let sum = pad
+      kids.forEach((kid, index) => {
+        const grow = Number.parseFloat(getComputedStyle(kid).flexGrow) || 0
+        sum += grow > 0 ? contentBox(kid) : kid.offsetHeight
+        if (index > 0) sum += gap
+      })
+      return sum
+    }
+    let width = -1
+    const sync = () => {
+      const list = cards()
+      const clear = (card: HTMLElement) => {
+        card.style.height = ''
+        card.style.minHeight = ''
+        card.style.maxHeight = ''
+      }
+      if (!phone.matches) {
+        width = -1
+        for (const card of list) clear(card)
+        return
+      }
+      const nextWidth = grid.clientWidth
+      if (nextWidth < 1 || nextWidth === width) return
+      width = nextWidth
+      const sequence = list.find((card) => card.querySelector('.seq-option'))
+      const head = sequence?.querySelector<HTMLElement>('.extra-card-head')
+      const body = sequence?.querySelector<HTMLElement>('.extra-card-body')
+      if (!sequence || !head || !body) return
+      const height = `${Math.ceil(head.offsetHeight + contentBox(body) + (sequence.offsetHeight - sequence.clientHeight))}px`
+      for (const card of list) {
+        if (card.style.height === height && card.style.maxHeight === height) continue
+        card.style.height = height
+        card.style.minHeight = height
+        card.style.maxHeight = height
+      }
+    }
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(grid)
+    phone.addEventListener('change', sync)
+    return () => {
+      observer.disconnect()
+      phone.removeEventListener('change', sync)
+      for (const card of cards()) {
+        card.style.height = ''
+        card.style.minHeight = ''
+        card.style.maxHeight = ''
+      }
+    }
+  }, [showExtras])
 
   useEffect(() => {
     const root = previewWrapRef.current
@@ -152,27 +219,60 @@ export function ConfirmFields({
       bar.scrollLeft = left
       lock = false
     }
+    const range = root.querySelector<HTMLInputElement>('.preview-range')
+    const usingRange = () => Boolean(range && !range.hidden && getComputedStyle(range).display !== 'none')
+    const maxScroll = () => Math.max(0, ...strips().map((node) => node.scrollWidth - node.clientWidth))
     const fit = () => {
       if (!spacer) return
-      const max = Math.max(0, ...strips().map((node) => node.scrollWidth))
+      const nodes = strips()
+      const max = Math.max(0, ...nodes.map((node) => node.scrollWidth))
       spacer.style.width = `${max}px`
-      const overflow = max > bar.clientWidth + 1
+      const view = nodes[0]?.clientWidth || bar.clientWidth
+      const overflow = max > view + 1
       bar.hidden = !overflow
+      if (range) {
+        range.hidden = !overflow
+        const limit = maxScroll()
+        const left = nodes[0]?.scrollLeft ?? 0
+        range.value = limit > 0 ? String(Math.round((left / limit) * 1000)) : '0'
+      }
       if (!overflow) apply(0)
     }
-    const onBarScroll = () => apply(bar.scrollLeft)
+    const onBarScroll = () => {
+      if (usingRange()) return
+      apply(bar.scrollLeft)
+    }
+    const onRange = () => {
+      if (!range) return
+      apply((Number(range.value) / 1000) * maxScroll())
+    }
     const onWheel = (event: WheelEvent) => {
-      if (bar.hidden) return
+      if (bar.hidden && !usingRange()) return
+      const phone = window.matchMedia(
+        '(max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px))',
+      ).matches
+      if (phone && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
       if (delta === 0) return
-      bar.scrollLeft += delta
+      if (usingRange()) {
+        const node = strips()[0]
+        const limit = maxScroll()
+        if (!node || limit <= 0) return
+        const next = Math.min(limit, Math.max(0, node.scrollLeft + delta))
+        apply(next)
+        if (range) range.value = String(Math.round((next / limit) * 1000))
+      } else {
+        bar.scrollLeft += delta
+      }
       event.preventDefault()
     }
     fit()
     bar.addEventListener('scroll', onBarScroll)
+    range?.addEventListener('input', onRange)
     root.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       bar.removeEventListener('scroll', onBarScroll)
+      range?.removeEventListener('input', onRange)
       root.removeEventListener('wheel', onWheel)
     }
   }, [rows, mappings])
@@ -180,7 +280,7 @@ export function ConfirmFields({
   return (
     <div className="step-page">
       <div className="panel confirm-panel">
-        <div className="panel-head">
+        <div className={`panel-head${showExtras ? ' is-extras' : ''}`}>
           <h2>{showExtras ? '確認欄位與標籤' : '確認欄位'}</h2>
         </div>
 
@@ -216,15 +316,19 @@ export function ConfirmFields({
                     </td>
                   </tr>
                 ))}
+                <tr className="preview-caption-row">
+                  <td>標籤預覽</td>
+                </tr>
               </tbody>
               <tfoot>
                 <tr>
-                  <td />
+                  <td className="col-check" />
                   <td />
                   <td>
                     <div className="preview-sync" ref={previewBarRef}>
                       <div />
                     </div>
+                    <input className="preview-range" type="range" min={0} max={1000} defaultValue={0} hidden aria-label="左右移動預覽" />
                   </td>
                 </tr>
               </tfoot>
@@ -239,7 +343,7 @@ export function ConfirmFields({
             {showExtrasNote ? <p className="muted">三類皆可獨立勾選，不是必填。</p> : null}
           </div>
 
-          <div className="extra-grid">
+          <div className="extra-grid" ref={extraGridRef}>
             <article className="extra-card">
               <label className="extra-card-head">
                 <input
@@ -313,7 +417,7 @@ export function ConfirmFields({
                   type="button"
                   className="btn ghost extra-card-foot"
                   onClick={addStatic}
-                  disabled={!extras.useStatic}
+                  disabled={!extras.useStatic || extras.staticLabels.length >= STATIC_LABEL_MAX}
                 >
                   ＋ 新增文字
                 </button>

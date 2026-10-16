@@ -145,6 +145,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const [sheetSize, setSheetSize] = useState<PaperSizeId>('A4')
   const stageRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const chooseRef = useRef<HTMLElement>(null)
   const pendingCenters = useRef<Map<string, { cx: number; cy: number }> | null>(null)
   const [scale, setScale] = useState(0.28)
 
@@ -153,6 +154,12 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const showBadgeExtra = BADGE_EXTRA_STEP && isBadge && importedCount.current > 3
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  useLayoutEffect(() => {
+    const choose = chooseRef.current
+    if (!choose) return
+    if (!window.matchMedia('(max-width: 899px)').matches) return
+    choose.scrollTop = 0
+  }, [phase])
   const paperSize: PaperSizeId = settings.paperGuide === 'none' ? 'A4' : settings.paperGuide
   const badgeSize: BadgeSizeId = settings.badgeSize ?? 'conf'
   const guide = isBadge
@@ -405,10 +412,19 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   const textFont = textItem?.fontFamily ?? FONT_CHOICES[0].id
   const textColor = textItem?.color ?? '#0f241f'
   const [sizePct, setSizePct] = useState(100)
-  const [badgeZones, setBadgeZones] = useState<Record<BadgeZoneId, BadgeZoneStyle>>({
-    top: { on: true, align: 'center', bold: false, sizePct: 100 },
-    mid: { on: true, align: 'center', bold: true, sizePct: 100 },
-    bot: { on: true, align: 'center', bold: false, sizePct: 100 },
+  const [badgeZones, setBadgeZones] = useState<Record<BadgeZoneId, BadgeZoneStyle>>(() => {
+    const pick = initialBadgePick(settings.items)
+    const zone = (id: BadgeZoneId, bold: boolean): BadgeZoneStyle => ({
+      on: pick[id] != null,
+      align: 'center',
+      bold,
+      sizePct: 100,
+    })
+    return {
+      top: zone('top', false),
+      mid: zone('mid', true),
+      bot: zone('bot', false),
+    }
   })
   const [badgePick, setBadgePick] = useState<Record<BadgeZoneId, string | null>>(() => initialBadgePick(settings.items))
   const [badgeDraft, setBadgeDraft] = useState<{ zone: BadgeZoneId | ExtraKey; text: string } | null>(null)
@@ -947,7 +963,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   return (
     <div className="booth-shell">
       <div className="booth-main">
-        <section className="booth-choose">
+        <section className="booth-choose" ref={chooseRef}>
           <p className="booth-step-label">
             步驟 {stepIndex}／{stepTotal}
             {phase === 'paper'
@@ -1133,15 +1149,22 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
               <h2>垂直位置</h2>
               <label className="booth-size">
                 <span>靠上</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={look.lift ?? 50}
-                  aria-label="垂直位置"
-                  onChange={(e) => patchBadgeLook({ lift: Number(e.target.value), place: 'mid' })}
-                />
+                <span className="booth-range">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={look.lift ?? 50}
+                    aria-label="垂直位置"
+                    onChange={(e) => {
+                      let lift = Number(e.target.value)
+                      if (Math.abs(lift - 50) <= 2) lift = 50
+                      patchBadgeLook({ lift, place: 'mid' })
+                    }}
+                  />
+                  <span className="booth-range-mid" aria-hidden="true" />
+                </span>
                 <span>靠下</span>
               </label>
             </>
@@ -1201,7 +1224,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
                             setBadgeZones((cur) => ({ ...cur, [zone]: { ...cur[zone], bold: !cur[zone].bold } }))
                           }
                         >
-                          {style.bold ? '已加粗' : '加粗'}
+                          {style.bold ? '粗體開啟' : '粗體關閉'}
                         </button>
                         <label className="badge-zone-size">
                           <input

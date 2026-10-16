@@ -45,7 +45,17 @@ function MiniFace({
 
 export function StandPreview({ settings, student, movable = true, highlightIds, hotGhost }: Props) {
   const isDesk = settings.mode === 'desk'
-  const faceW = isDesk ? 168 : 176
+  const [compact, setCompact] = useState(() =>
+    window.matchMedia('(max-width: 640px), (orientation: landscape) and (max-height: 500px) and (max-width: 899px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px), (orientation: landscape) and (max-height: 500px) and (max-width: 899px)')
+    const apply = () => setCompact(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  const faceW = (isDesk ? 168 : 176) * (compact ? 0.5 : 1)
   const aspect = settings.faceHeightMm / Math.max(settings.widthMm, 1)
   const faceH = Math.max(28, Math.min(78, aspect * faceW))
   const flapH = faceH * 0.5

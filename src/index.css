@@ -499,6 +499,9 @@ button.brand-mark:focus-visible {
 
 .badge-zone-bold {
   flex: none;
+  width: 6.75rem;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .badge-zone-style {
@@ -800,6 +803,32 @@ button.brand-mark:focus-visible {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.booth-range {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.booth-range input[type='range'] {
+  width: 100%;
+}
+
+.booth-range-mid {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .booth-actions {
@@ -1230,6 +1259,10 @@ button.brand-mark:focus-visible {
   font-size: 0.98rem;
 }
 
+.preview-caption-row {
+  display: none;
+}
+
 .extra-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1454,6 +1487,24 @@ button.brand-mark:focus-visible {
   border-color: var(--accent);
 }
 
+.btn-swap {
+  display: grid;
+  white-space: nowrap;
+}
+
+.btn-swap > span {
+  grid-area: 1 / 1;
+}
+
+.btn-swap > span:last-child,
+.btn.is-exporting .btn-swap > span:first-child {
+  visibility: hidden;
+}
+
+.btn.is-exporting .btn-swap > span:last-child {
+  visibility: visible;
+}
+
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -1636,6 +1687,17 @@ button.brand-mark:focus-visible {
   padding: 7px 14px;
   cursor: pointer;
   min-width: 4.2rem;
+}
+
+.toolbar-drop-btn.is-export {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #f4fff9;
+}
+
+.toolbar-drop-btn.is-export:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
 }
 
 .size-drop > .toolbar-drop-btn {
@@ -3440,14 +3502,14 @@ button.brand-mark:focus-visible {
 .print-cut.is-v {
   top: 0;
   bottom: 0;
-  width: 0.18mm;
+  width: 1px;
   transform: translateX(-50%);
 }
 
 .print-cut.is-h {
   left: 0;
   right: 0;
-  height: 0.18mm;
+  height: 1px;
   transform: translateY(-50%);
 }
 
@@ -7322,26 +7384,28 @@ button.att-card:focus-visible {
   }
 
   .app.step-home .tool-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
   .app.step-home .tool-tile {
-    aspect-ratio: auto;
-    grid-template-rows: auto auto;
+    aspect-ratio: 1 / 1;
+    grid-template-rows: 1fr auto 1fr;
     align-items: start;
     min-height: 0;
-    padding: 14px 16px 16px;
+    padding: 12px;
+    overflow: hidden;
   }
 
   .app.step-home .tool-tile strong {
-    grid-row: 1;
-    font-size: 1.12rem;
+    grid-row: 2;
+    font-size: 1.05rem;
   }
 
   .app.step-home .tool-tile > span {
-    grid-row: 2;
-    margin-top: 4px;
+    grid-row: 3;
+    margin-top: 6px;
+    font-size: 0.78rem;
   }
 
   .app.step-home .tool-hint-last {
@@ -8664,6 +8728,675 @@ button.att-card:focus-visible {
 .room-folder .room-slot.is-hot {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.preview-range {
+  display: none;
+  width: 100%;
+  height: 36px;
+  margin: 8px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 行動端（手機與平板）：不影響桌面放大框（內層寬度約在 900px 以上） */
+@media (max-width: 899px) {
+  html.is-leave-guard,
+  html.is-leave-guard body {
+    overscroll-behavior-y: none;
+  }
+
+  .booth-drag-card[draggable='true'],
+  .seat-chip[draggable='true'],
+  .bus-seat-name[draggable='true'],
+  .sweep-folder[draggable='true'],
+  .sweep-task-chip[draggable='true'] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: element;
+    touch-action: none;
+  }
+
+  .touch-drag-ghost {
+    box-shadow: 0 10px 28px rgba(60, 42, 20, 0.22);
+    opacity: 0.94;
+  }
+
+  .is-touch-dragging {
+    opacity: 0.4;
+  }
+
+  .sweep-folder-title {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-user-drag: none;
+    touch-action: manipulation;
+  }
+
+  .preview-sync {
+    display: none;
+  }
+
+  .preview-range:not([hidden]) {
+    --range-thumb: 22px;
+    display: block;
+    box-sizing: border-box;
+    width: calc(100% + var(--range-thumb));
+    max-width: none;
+    min-width: 0;
+    height: var(--range-thumb);
+    margin: 8px calc(var(--range-thumb) / -2) 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    outline: none;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .preview-range:not([hidden]):focus,
+  .preview-range:not([hidden]):focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .preview-range:not([hidden])::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #d9d3c6;
+    border-radius: 999px;
+  }
+
+  .preview-range:not([hidden])::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--range-thumb);
+    height: var(--range-thumb);
+    margin-top: -8px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .preview-range:not([hidden])::-moz-range-track {
+    height: 6px;
+    background: #d9d3c6;
+    border: 0;
+    border-radius: 999px;
+  }
+
+  .preview-range:not([hidden])::-moz-range-thumb {
+    width: var(--range-thumb);
+    height: var(--range-thumb);
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .map-table.is-preview-scroll td:last-child {
+    height: 100%;
+  }
+
+  .preview-cells.is-scroll {
+    align-items: stretch;
+    min-height: 48px;
+    height: 100%;
+  }
+
+  .preview-cells.is-scroll span {
+    min-height: 48px;
+    height: auto;
+    align-self: stretch;
+  }
+
+  .booth-choose > .booth-step-label,
+  .booth-preview > .booth-step-label {
+    display: none;
+  }
+
+  .app.is-desk.step-booth,
+  .app.step-booth {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app.step-booth .site-main,
+  .app.step-booth .booth-shell,
+  .app.step-booth .booth-main {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-booth .booth-main,
+  .app.step-booth .booth-main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app.step-booth .booth-preview,
+  .app.is-desk.step-booth .booth-preview {
+    order: -1;
+    flex: none;
+    height: 50vh;
+    max-height: 50vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app.step-booth .booth-preview-stage,
+  .app.is-desk.step-booth .booth-preview-stage {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .app.step-booth .booth-choose,
+  .app.is-desk.step-booth .booth-choose {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .app.step-booth .booth-choose-body,
+  .app.is-desk.step-booth .booth-choose-body {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app.step-booth .booth-actions,
+  .app.is-desk.step-booth .booth-actions {
+    position: static;
+    margin-top: auto;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .booth-align-seg {
+    flex: none;
+    flex-shrink: 0;
+    min-height: 48px;
+    height: auto;
+    overflow: visible;
+  }
+
+  .booth-align-seg button {
+    flex: 1 1 0;
+    min-height: 48px;
+    height: auto;
+  }
+
+  .booth-choose-body > h2,
+  .booth-choose-body > .booth-cards,
+  .booth-choose-body > .booth-slots,
+  .booth-choose-body > .booth-idle,
+  .booth-choose-body > .seg {
+    flex: none;
+    flex-shrink: 0;
+  }
+
+  .booth-drop,
+  .booth-drag-card {
+    flex-shrink: 0;
+    min-height: 72px;
+  }
+
+  .pages-preview-actions .is-print {
+    display: none;
+  }
+
+  .pages-preview-actions .is-pdf,
+  .pages-preview-actions .is-pdf:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #f4fff9;
+    font-weight: 700;
+  }
+
+  .pages-preview-actions .is-pdf:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
+
+  .editor-stage.is-fit {
+    cursor: default;
+    touch-action: manipulation;
+  }
+}
+
+/* 手機：直向約 640px 以下，橫向則是較矮的畫面。平板不套用。 */
+@media (max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px)) {
+  .app.step-home .tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .app.step-home .tool-tile {
+    aspect-ratio: 1 / 1;
+    grid-template-rows: 1fr auto 1fr;
+    align-items: start;
+    overflow: hidden;
+  }
+
+  .app.step-home .tool-tile strong {
+    grid-row: 2;
+  }
+
+  .app.step-home .tool-tile > span {
+    grid-row: 3;
+  }
+
+  .step-rail,
+  .seat-setup > .seat-work-head .step-rail.is-track,
+  .seat-assign > .seat-work-head .step-rail.is-track {
+    display: none;
+  }
+
+  .map-table.is-preview-scroll,
+  .map-table.is-preview-scroll thead,
+  .map-table.is-preview-scroll tbody,
+  .map-table.is-preview-scroll tfoot {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .map-table.is-preview-scroll thead tr {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .map-table.is-preview-scroll tbody {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .map-table.is-preview-scroll tbody tr {
+    display: contents;
+  }
+
+  .map-table.is-preview-scroll tfoot tr {
+    display: block;
+  }
+
+  .map-table.is-preview-scroll th,
+  .map-table.is-preview-scroll td {
+    border-bottom: none;
+    height: auto;
+    width: auto;
+    box-sizing: border-box;
+  }
+
+  .map-table.is-preview-scroll tbody td:nth-child(1),
+  .map-table.is-preview-scroll tbody td:nth-child(2) {
+    order: 0;
+    border-bottom: 1px solid var(--paper-deep);
+  }
+
+  .map-table.is-preview-scroll tbody td:nth-child(1) {
+    flex: 0 0 76px;
+  }
+
+  .map-table.is-preview-scroll tbody td:nth-child(2) {
+    flex: 1 1 calc(100% - 76px);
+  }
+
+  .map-table.is-preview-scroll th:last-child,
+  .map-table.is-preview-scroll tfoot td:nth-child(1),
+  .map-table.is-preview-scroll tfoot td:nth-child(2) {
+    display: none;
+  }
+
+  .map-table.is-preview-scroll tbody td:last-child,
+  .map-table.is-preview-scroll tfoot td:last-child {
+    order: 1;
+    flex: 1 0 100%;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-top: 8px;
+  }
+
+  .map-table.is-preview-scroll tbody td:last-child {
+    overflow: clip;
+    pointer-events: none;
+    touch-action: manipulation;
+  }
+
+  .map-table.is-preview-scroll tfoot td:last-child {
+    display: block;
+    width: 100%;
+  }
+
+  .map-table.is-preview-scroll .preview-cells.is-scroll {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .map-table.is-preview-scroll .preview-cells.is-scroll,
+  .preview-cells.is-scroll {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    align-items: center;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    pointer-events: none;
+    overscroll-behavior: auto;
+    touch-action: manipulation;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tbody td:last-child {
+    height: auto;
+    align-self: start;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll .preview-cells.is-scroll span {
+    align-self: center;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+  }
+
+  .app.is-desk.step-map .panel-head.is-extras {
+    display: none;
+  }
+
+  .map-table.is-preview-scroll tbody tr.preview-caption-row {
+    display: contents;
+  }
+
+  .map-table.is-preview-scroll tbody tr.preview-caption-row td {
+    display: block;
+    flex: 1 0 100%;
+    order: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 14px 2px 4px;
+    border: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+
+  .app.is-desk.step-map .confirm-section:first-of-type,
+  .app.is-desk.step-map .confirm-section:nth-of-type(2) {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .app.is-desk.step-map .table-wrap {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app.is-desk .site-header .step-rail {
+    display: none;
+  }
+
+  .extra-grid,
+  .app.is-desk .extra-grid,
+  .app.is-desk.step-map .extra-grid {
+    grid-template-columns: 1fr;
+    overflow-anchor: none;
+  }
+
+  .app.is-desk.step-map,
+  .app.is-desk.step-map .site-main,
+  .app.is-desk.step-map .step-page,
+  .app.is-desk.step-map .confirm-panel,
+  .app.is-desk.step-map .confirm-section,
+  .app.is-desk.step-map .table-wrap {
+    height: auto;
+    max-height: none;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+    touch-action: manipulation;
+  }
+
+  .app.is-desk.step-map .extra-card,
+  .app.is-desk.step-map .extra-card-body,
+  .app.is-desk.step-map .extra-card-main,
+  .app.is-desk.step-map .extra-placeholder,
+  .app.is-desk.step-map .image-preview-wrap,
+  .app.is-desk.step-map .image-preview {
+    overflow: clip;
+    pointer-events: none;
+    overscroll-behavior: auto;
+    touch-action: manipulation;
+  }
+
+  .app.is-desk.step-map .extra-card-head,
+  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .seq-option,
+  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .static-row,
+  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .extra-card-foot,
+  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .image-pick,
+  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .image-preview-del {
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .app.is-desk.step-map .extra-card {
+    height: auto;
+    min-height: 0;
+  }
+
+  .app.is-desk.step-map .extra-card .image-preview-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: clip;
+  }
+
+  .app.is-desk.step-map .extra-card .image-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+  }
+
+  html:has(.app.step-booth),
+  body:has(.app.step-booth),
+  #root:has(.app.step-booth) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app.step-booth,
+  .app.is-desk.step-booth {
+    box-sizing: border-box;
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app.step-booth .site-main,
+  .app.step-booth .booth-shell,
+  .app.step-booth .booth-main,
+  .app.is-desk.step-booth .site-main,
+  .app.is-desk.step-booth .booth-shell,
+  .app.is-desk.step-booth .booth-main {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app.step-booth .booth-preview,
+  .app.is-desk.step-booth .booth-preview {
+    flex: none;
+    height: 50dvh;
+    max-height: 50dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
+  .app.step-booth .booth-choose,
+  .app.is-desk.step-booth .booth-choose {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .app.step-booth .booth-choose-body,
+  .app.is-desk.step-booth .booth-choose-body {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app.step-booth .booth-actions,
+  .app.is-desk.step-booth .booth-actions {
+    position: static;
+    flex: none;
+    margin-top: auto;
+    padding-bottom: 8px;
+  }
+
+  .stand-preview {
+    width: 110px;
+  }
+
+  .stand-viewport {
+    height: 62px;
+  }
+}
+
+/* 平板直向：預覽區高度是鎖定的，標籤要跟著每一列撐開，拉桿留在區底。 */
+@media (orientation: portrait) and (min-width: 641px) and (max-width: 899px) {
+  .app.is-desk.step-map .confirm-section:first-of-type {
+    flex: 2 1 50%;
+  }
+
+  .app.is-desk.step-map .confirm-section:nth-of-type(2) {
+    flex: 1 1 32%;
+  }
+
+  .app.is-desk.step-map .table-wrap {
+    position: relative;
+    overflow: visible;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    width: auto;
+    height: auto;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll thead,
+  .app.is-desk.step-map .map-table.is-preview-scroll tfoot {
+    flex: none;
+    display: block;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tbody {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: auto;
+    overflow: auto;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tr {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tbody tr {
+    flex: 1 1 0;
+    min-height: 56px;
+    height: auto;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll th,
+  .app.is-desk.step-map .map-table.is-preview-scroll td {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll .col-check {
+    flex: 0 0 76px;
+    justify-content: center;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll th:nth-child(2),
+  .app.is-desk.step-map .map-table.is-preview-scroll td:nth-child(2) {
+    flex: 0 0 9.5rem;
+    width: auto;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll th:last-child,
+  .app.is-desk.step-map .map-table.is-preview-scroll td:last-child {
+    flex: 1 1 auto;
+    align-items: stretch;
+    width: auto;
+    height: auto;
+  }
+
+  .app.is-desk.step-map .preview-cells.is-scroll {
+    flex: 1 1 auto;
+    align-self: stretch;
+    height: auto;
+    min-height: 0;
+  }
+
+  .app.is-desk.step-map .preview-cells.is-scroll span {
+    align-self: stretch;
+    height: auto;
+    min-height: 48px;
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tfoot td {
+    background: var(--card);
+  }
+
+  .app.is-desk.step-map .map-table.is-preview-scroll tr.preview-caption-row {
+    display: none;
+  }
 }
 
 
