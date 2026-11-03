@@ -18,9 +18,11 @@ import {
   weekdayMon0FromIso,
   type AttDateMode,
 } from '../lib/attendanceExport'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, swallowFollowingClick } from '../lib/excel'
+import { swallowFollowingClick } from '../lib/swallowClick'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage } from '../lib/excel'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import { uid } from '../types'
+import { savedData, usePersistWork } from '../lib/workSession'
 
 interface Props {
   onHome: () => void
@@ -70,18 +72,33 @@ function insertInto(
   return withoutEmpty(next)
 }
 
+type AttSnapshot = {
+  periodLevel: PeriodLevel
+  chains: ChainBlock[][]
+  packs: PackedCard[]
+  names: string[]
+  dateMode: AttDateMode
+  pickedDate: string
+}
+
 export function AttendanceTool({ onHome }: Props) {
+  const saved = savedData<AttSnapshot>('attendance')
   const seats = useMemo(() => seatCards(), [])
   const reasons = useMemo(() => reasonCards(), [])
-  const [periodLevel, setPeriodLevel] = useState<PeriodLevel>('above')
+  const [periodLevel, setPeriodLevel] = useState<PeriodLevel>(saved?.periodLevel ?? 'above')
   const periods = useMemo(() => periodCards(periodLevel), [periodLevel])
-  const [chains, setChains] = useState<ChainBlock[][]>([])
-  const [packs, setPacks] = useState<PackedCard[]>([])
-  const [names] = useState<string[]>(() => Array.from({ length: 30 }, () => ''))
-  const [dateMode, setDateMode] = useState<AttDateMode>('today')
-  const [pickedDate, setPickedDate] = useState(todayIso)
+  const [chains, setChains] = useState<ChainBlock[][]>(saved?.chains ?? [])
+  const [packs, setPacks] = useState<PackedCard[]>(saved?.packs ?? [])
+  const [names] = useState<string[]>(saved?.names?.length ? saved.names : () => Array.from({ length: 30 }, () => ''))
+  const [dateMode, setDateMode] = useState<AttDateMode>(saved?.dateMode ?? 'today')
+  const [pickedDate, setPickedDate] = useState(saved?.pickedDate ?? todayIso)
   const [exportOpen, setExportOpen] = useState(false)
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
+  const snapshot = useMemo<AttSnapshot>(
+    () => ({ periodLevel, chains, packs, names, dateMode, pickedDate }),
+    [periodLevel, chains, packs, names, dateMode, pickedDate],
+  )
+  usePersistWork('attendance', snapshot)
 
   function packStamp() {
     const date = dateMode === 'fixed' ? pickedDate : todayIso()
@@ -273,7 +290,9 @@ export function AttendanceTool({ onHome }: Props) {
               className="btn"
               onClick={() => {
                 setExportOpen(false)
-                void exportAttendanceExcel(packs, names, periodLevel, packStamp())
+                void exportAttendanceExcel(packs, names, periodLevel, packStamp()).catch((err: unknown) => {
+                  console.error(err)
+                })
               }}
             >
               本周未有紀錄，匯出新檔

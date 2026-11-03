@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { captureSheet } from '../lib/captureSheet'
 import { savePdfFile } from '../lib/savePdf'
+import { measureSheet, prepareStampFonts, stampPage } from '../lib/stampSheet'
 import { fitPreviewRow } from '../lib/fitPreviewChrome'
 import { bestBadgePack, chunk, resolvePrintPaper } from '../lib/layout'
 import {
@@ -60,6 +61,10 @@ export function PagesPreview({
   const grid = pack ? { cols: pack.cols, rows: pack.rows } : impositionGrid(imposition, paper.paperWidthMm, paper.paperHeightMm)
   const perPage = Math.max(1, grid.cols * grid.rows)
   const pages = useMemo(() => chunk(rows, perPage), [rows, perPage])
+  const templateRows = useMemo<StudentRow[]>(
+    () => Array.from({ length: perPage }, (_, index) => ({ rowIndex: -(index + 1), values: {} })),
+    [perPage],
+  )
   const pageCount = Math.max(1, pages.length)
   const [page, setPage] = useState(0)
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -109,8 +114,8 @@ export function PagesPreview({
 
   useLayoutEffect(() => {
     function fitChrome() {
-      fitPreviewRow(barFitRef.current, 'spread')
-      fitPreviewRow(pagerFitRef.current, 'center')
+      fitPreviewRow(barFitRef.current, 'spread', true)
+      fitPreviewRow(pagerFitRef.current, 'center', true)
     }
     fitChrome()
     window.addEventListener('resize', fitChrome)
@@ -175,8 +180,13 @@ export function PagesPreview({
       if (cancelled) return
       try {
         const { jsPDF } = await import('jspdf')
-        const sheets = Array.from(host.querySelectorAll<HTMLElement>('.print-page'))
-        if (!sheets.length) return
+        const sheet = host.querySelector<HTMLElement>('.print-page')
+        if (!sheet) return
+        await document.fonts.ready
+        const base = await captureSheet(sheet, 1)
+        const plan = measureSheet(sheet, base, settings)
+        const pageList = pages.length ? pages : [[]]
+        await prepareStampFonts(plan, pageList, settings)
         const w = paper.paperWidthMm
         const h = paper.paperHeightMm
         const landscape = w > h
@@ -185,9 +195,9 @@ export function PagesPreview({
           unit: 'mm',
           format: [w, h],
         })
-        for (let i = 0; i < sheets.length; i++) {
+        for (let i = 0; i < pageList.length; i++) {
           if (cancelled) return
-          const canvas = await captureSheet(sheets[i])
+          const canvas = stampPage(base, plan, pageList[i], settings)
           const img = canvas.toDataURL('image/jpeg', 0.93)
           if (i > 0) pdf.addPage([w, h], landscape ? 'landscape' : 'portrait')
           pdf.addImage(img, 'JPEG', 0, 0, w, h)
@@ -204,7 +214,7 @@ export function PagesPreview({
     return () => {
       cancelled = true
     }
-  }, [pdfBusy, title, dirLabel, paper.size, paper.paperHeightMm, paper.paperWidthMm, imposition, isBadge, grid.cols, grid.rows])
+  }, [pdfBusy, title, dirLabel, paper.size, paper.paperHeightMm, paper.paperWidthMm, imposition, isBadge, grid.cols, grid.rows, pages, settings])
 
   return (
     <div
@@ -327,10 +337,8 @@ export function PagesPreview({
       </div>
 
       {pdfBusy && (
-        <div className="pages-pdf-source" ref={pdfSourceRef} aria-hidden>
-          {(pages.length ? pages : [[]]).map((pageRows, pageIndex) => (
-            <PrintSheet key={pageIndex} settings={settings} students={pageRows} imposition={imposition} sheetSize={sheetSize} />
-          ))}
+        <div className="pages-pdf-source is-text-blank" ref={pdfSourceRef} aria-hidden>
+          <PrintSheet settings={settings} students={templateRows} imposition={imposition} sheetSize={sheetSize} />
         </div>
       )}
     </div>

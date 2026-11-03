@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile, swallowFollowingClick } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import { swallowFollowingClick } from '../lib/swallowClick'
 import type { ColumnMapping, StudentRow } from '../types'
 import { UploadLimitNotice } from './UploadLimitNotice'
 
@@ -77,7 +78,8 @@ export function ExcelUpload({
             e.preventDefault()
             setDragging(false)
             const file = e.dataTransfer.files?.[0]
-            if (file) void handleFile(file)
+            if (!file) return
+            void handleFile(file)
           }}
           onClick={() => pickFile()}
           role="button"

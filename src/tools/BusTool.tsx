@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { BusBoard, type BusRolePerson } from '../components/BusBoard'
 import { ConfirmFields } from '../components/ConfirmFields'
@@ -7,6 +7,7 @@ import { StepRail } from '../components/StepRail'
 import { busModel, coachCountForRoster, type BusCoach } from '../lib/busLayout'
 import type { ColumnMapping, ExtraLabelOptions, StudentRow } from '../types'
 import { uid } from '../types'
+import { savedData, usePersistWork } from '../lib/workSession'
 
 function emptyCoach(model = busModel(undefined).id): BusCoach {
   return { id: uid('bus'), name: '', plate: '', model, assignments: {} }
@@ -32,19 +33,36 @@ const defaultExtras = (): ExtraLabelOptions => ({
 
 type Step = 'upload' | 'map' | 'assign'
 
+type BusSnapshot = {
+  step: Step
+  fileName: string | null
+  rawRows: StudentRow[]
+  mappings: ColumnMapping[]
+  extras: ExtraLabelOptions
+  coaches: BusCoach[]
+  coachIndex: number
+  rolePeople: BusRolePerson[]
+}
+
 interface Props {
   onHome: () => void
 }
 
 export function BusTool({ onHome }: Props) {
-  const [step, setStep] = useState<Step>('upload')
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [rawRows, setRawRows] = useState<StudentRow[]>([])
-  const [mappings, setMappings] = useState<ColumnMapping[]>([])
-  const [extras, setExtras] = useState<ExtraLabelOptions>(defaultExtras)
-  const [coaches, setCoaches] = useState<BusCoach[]>(() => [emptyCoach()])
-  const [coachIndex, setCoachIndex] = useState(0)
-  const [rolePeople, setRolePeople] = useState<BusRolePerson[]>([])
+  const saved = savedData<BusSnapshot>('bus')
+  const [step, setStep] = useState<Step>(saved?.step ?? 'upload')
+  const [fileName, setFileName] = useState<string | null>(saved?.fileName ?? null)
+  const [rawRows, setRawRows] = useState<StudentRow[]>(saved?.rawRows ?? [])
+  const [mappings, setMappings] = useState<ColumnMapping[]>(saved?.mappings ?? [])
+  const [extras, setExtras] = useState<ExtraLabelOptions>(saved?.extras ?? defaultExtras)
+  const [coaches, setCoaches] = useState<BusCoach[]>(saved?.coaches?.length ? saved.coaches : [emptyCoach()])
+  const [coachIndex, setCoachIndex] = useState(saved?.coachIndex ?? 0)
+  const [rolePeople, setRolePeople] = useState<BusRolePerson[]>(saved?.rolePeople ?? [])
+  const snapshot = useMemo<BusSnapshot>(
+    () => ({ step, fileName, rawRows, mappings, extras, coaches, coachIndex, rolePeople }),
+    [step, fileName, rawRows, mappings, extras, coaches, coachIndex, rolePeople],
+  )
+  usePersistWork('bus', snapshot)
 
   function resetToUpload() {
     setStep('upload')

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { StepRail } from '../components/StepRail'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile, swallowFollowingClick } from '../lib/excel'
+import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import { swallowFollowingClick } from '../lib/swallowClick'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import {
   applyStats,
@@ -15,12 +16,26 @@ import {
   type SnapTable,
 } from '../lib/snapSheet'
 import { exportSnapSheetExcel } from '../lib/snapSheetExport'
+import { savedData, usePersistWork } from '../lib/workSession'
 
 interface Props {
   onHome: () => void
 }
 
 type Step = 'upload' | 'edit'
+
+type SnapSnapshot = {
+  step: Step
+  preview: string | null
+  photoName: string
+  sheetTitle: string
+  table: SnapTable
+  roster: RosterPerson[]
+  rosterName: string
+  wantTotal: boolean
+  wantAvg: boolean
+  wantRank: boolean
+}
 
 function stemName(fileName: string) {
   return fileName.replace(/\.[^.]+$/, '') || fileName
@@ -39,23 +54,29 @@ export function SnapSheetTool({ onHome }: Props) {
   const hRailRef = useRef<HTMLDivElement>(null)
   const syncingScroll = useRef(false)
 
-  const [step, setStep] = useState<Step>('upload')
+  const saved = savedData<SnapSnapshot>('snap-sheet')
+  const [step, setStep] = useState<Step>(saved?.step ?? 'upload')
   const [tableScrollWidth, setTableScrollWidth] = useState(0)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [photoName, setPhotoName] = useState('')
-  const [sheetTitle, setSheetTitle] = useState('拍拍成表')
-  const [table, setTable] = useState<SnapTable>(() => emptySnapTable())
+  const [preview, setPreview] = useState<string | null>(saved?.preview ?? null)
+  const [photoName, setPhotoName] = useState(saved?.photoName ?? '')
+  const [sheetTitle, setSheetTitle] = useState(saved?.sheetTitle ?? '拍拍成表')
+  const [table, setTable] = useState<SnapTable>(saved?.table ?? emptySnapTable)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
-  const [roster, setRoster] = useState<RosterPerson[]>([])
-  const [rosterName, setRosterName] = useState('')
-  const [wantTotal, setWantTotal] = useState(false)
-  const [wantAvg, setWantAvg] = useState(false)
-  const [wantRank, setWantRank] = useState(false)
+  const [roster, setRoster] = useState<RosterPerson[]>(saved?.roster ?? [])
+  const [rosterName, setRosterName] = useState(saved?.rosterName ?? '')
+  const [wantTotal, setWantTotal] = useState(saved?.wantTotal ?? false)
+  const [wantAvg, setWantAvg] = useState(saved?.wantAvg ?? false)
+  const [wantRank, setWantRank] = useState(saved?.wantRank ?? false)
   const [ocrReady, setOcrReady] = useState(false)
+  const snapshot = useMemo<SnapSnapshot>(
+    () => ({ step, preview, photoName, sheetTitle, table, roster, rosterName, wantTotal, wantAvg, wantRank }),
+    [step, preview, photoName, sheetTitle, table, roster, rosterName, wantTotal, wantAvg, wantRank],
+  )
+  usePersistWork('snap-sheet', snapshot)
 
   const nameCol = useMemo(() => guessNameCol(table.headers, table.rows), [table])
   const scoreCols = useMemo(() => guessScoreCols(table.headers, table.rows), [table])
@@ -301,7 +322,8 @@ export function SnapSheetTool({ onHome }: Props) {
                     onDrop={(e) => {
                       e.preventDefault()
                       const file = e.dataTransfer.files?.[0]
-                      if (file) void onRosterFile(file)
+                      if (!file) return
+                      void onRosterFile(file)
                     }}
                     role="button"
                     tabIndex={0}
@@ -404,7 +426,11 @@ export function SnapSheetTool({ onHome }: Props) {
               <button
                 type="button"
                 className="btn primary snap-export-btn"
-                onClick={() => void exportSnapSheetExcel(display, withXlsx(sheetTitle))}
+                onClick={() => {
+                  void exportSnapSheetExcel(display, withXlsx(sheetTitle)).catch((err: unknown) => {
+                    console.error(err)
+                  })
+                }}
               >
                 匯出
               </button>

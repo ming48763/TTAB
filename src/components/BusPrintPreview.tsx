@@ -136,7 +136,9 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
     setExportChoice(null)
     if (format === 'excel') {
       const countName = busName.trim() || '遊覽車'
-      void downloadBusExcel(model, names, { busName, plateNo }, `遊覽車大師_${countName}_${dateStamp()}.xlsx`)
+      void downloadBusExcel(model, names, { busName, plateNo }, `遊覽車大師_${countName}_${dateStamp()}.xlsx`).catch((err: unknown) => {
+        console.error(err)
+      })
       return
     }
     if (mode === 'print') {

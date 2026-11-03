@@ -1,8 +1,11 @@
+import { TABLET_LANDSCAPE } from './screenLayout'
+
 /** Shrink a preview toolbar row so it stays on one line inside a fixed page. */
-export function fitPreviewRow(row: HTMLElement | null, mode: 'spread' | 'center' = 'spread') {
+export function fitPreviewRow(row: HTMLElement | null, mode: 'spread' | 'center' = 'spread', tabletLandscape = false) {
   if (!row) return
   const portrait = window.matchMedia('(orientation: portrait)').matches
-  if (!portrait) {
+  const tablet = tabletLandscape && window.matchMedia(TABLET_LANDSCAPE).matches
+  if (!portrait && !tablet) {
     row.style.zoom = ''
     row.style.width = ''
     return

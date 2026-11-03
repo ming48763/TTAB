@@ -29,7 +29,7 @@ export function HomeIndex({ onOpenTool, stats }: Props) {
   useEffect(() => {
     const header = headerRef.current
     if (!header) return
-    const compact = window.matchMedia('(max-width: 640px)')
+    const compact = window.matchMedia('(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))')
     if (compact.matches) return
     let frame = 0
     const fadeDistance = 96

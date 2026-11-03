@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
-import { BoothWizard } from '../components/BoothWizard'
+import { BoothWizard, type WizardStep } from '../components/BoothWizard'
 import { BrandMark } from '../components/BrandMark'
 import { ConfirmFields } from '../components/ConfirmFields'
 import { EditModePick } from '../components/EditModePick'
 import { ExcelUpload } from '../components/ExcelUpload'
 import { StepRail } from '../components/StepRail'
 import { LayoutEditor } from '../components/LayoutEditor'
+import type { ToolId } from '../home/tools'
 import {
   applySequenceToRows,
   buildLayoutFromConfirm,
   buildMappingsWithExtras,
 } from '../lib/buildLayout'
 import { applyBadgeSize, applyCardPaperSize } from '../lib/paper'
+import { savedData, usePersistWork } from '../lib/workSession'
 import type {
   AppStep,
   ColumnMapping,
@@ -65,19 +67,53 @@ function cloneSettings(settings: LayoutSettings): LayoutSettings {
   }
 }
 
+type PlateSnapshot = {
+  step: AppStep
+  fileName: string | null
+  rawRows: StudentRow[]
+  mappings: ColumnMapping[]
+  extras: ExtraLabelOptions
+  settings: LayoutSettings
+  boothSeed: LayoutSettings | null
+  boothSession: number
+  boothPhase: WizardStep
+  editRows: StudentRow[]
+  editMappings: ColumnMapping[]
+}
+
 export function PlateNameTool({ family, onHome }: Props) {
   const title = familyTitle(family)
   const allowedModes = familyModes(family)
-  const [step, setStep] = useState<AppStep>('upload')
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [rawRows, setRawRows] = useState<StudentRow[]>([])
-  const [mappings, setMappings] = useState<ColumnMapping[]>([])
-  const [extras, setExtras] = useState<ExtraLabelOptions>(defaultExtras)
-  const [settings, setSettings] = useState<LayoutSettings>(() => freshSettings(family))
-  const [boothSeed, setBoothSeed] = useState<LayoutSettings | null>(null)
-  const [boothSession, setBoothSession] = useState(0)
-  const [editRows, setEditRows] = useState<StudentRow[]>([])
-  const [editMappings, setEditMappings] = useState<ColumnMapping[]>([])
+  const sessionTool: ToolId = family === 'badge' ? 'badges' : 'plates'
+  const saved = savedData<PlateSnapshot>(sessionTool)
+  const [step, setStep] = useState<AppStep>(saved?.step ?? 'upload')
+  const [fileName, setFileName] = useState<string | null>(saved?.fileName ?? null)
+  const [rawRows, setRawRows] = useState<StudentRow[]>(saved?.rawRows ?? [])
+  const [mappings, setMappings] = useState<ColumnMapping[]>(saved?.mappings ?? [])
+  const [extras, setExtras] = useState<ExtraLabelOptions>(saved?.extras ?? defaultExtras)
+  const [settings, setSettings] = useState<LayoutSettings>(saved?.settings ?? freshSettings(family))
+  const [boothSeed, setBoothSeed] = useState<LayoutSettings | null>(saved?.boothSeed ?? null)
+  const [boothSession, setBoothSession] = useState(saved?.boothSession ?? 0)
+  const [boothPhase, setBoothPhase] = useState<WizardStep>(saved?.boothPhase ?? 'paper')
+  const [editRows, setEditRows] = useState<StudentRow[]>(saved?.editRows ?? [])
+  const [editMappings, setEditMappings] = useState<ColumnMapping[]>(saved?.editMappings ?? [])
+  const snapshot = useMemo<PlateSnapshot>(
+    () => ({
+      step,
+      fileName,
+      rawRows,
+      mappings,
+      extras,
+      settings,
+      boothSeed,
+      boothSession,
+      boothPhase,
+      editRows,
+      editMappings,
+    }),
+    [step, fileName, rawRows, mappings, extras, settings, boothSeed, boothSession, boothPhase, editRows, editMappings],
+  )
+  usePersistWork(sessionTool, snapshot)
 
   const sample = useMemo(() => editRows[0] ?? null, [editRows])
 
@@ -89,6 +125,7 @@ export function PlateNameTool({ family, onHome }: Props) {
     setExtras(defaultExtras())
     setSettings(freshSettings(family))
     setBoothSeed(null)
+    setBoothPhase('paper')
     setEditRows([])
     setEditMappings([])
   }
@@ -163,6 +200,7 @@ export function PlateNameTool({ family, onHome }: Props) {
           <EditModePick
             onPickBooth={() => {
               if (boothSeed) setSettings(cloneSettings(boothSeed))
+              setBoothPhase('paper')
               setBoothSession((n) => n + 1)
               setStep('booth')
             }}
@@ -177,6 +215,8 @@ export function PlateNameTool({ family, onHome }: Props) {
         {step === 'booth' && fileName && (
           <BoothWizard
             key={boothSession}
+            initialPhase={boothPhase}
+            onPhase={setBoothPhase}
             settings={settings}
             sample={sample}
             rows={editRows}

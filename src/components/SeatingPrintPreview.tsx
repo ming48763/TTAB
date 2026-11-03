@@ -309,7 +309,7 @@ export function SeatingPrintPreview({
           </button>
           <button
             type="button"
-            className={`btn${pdfBusy ? ' is-exporting' : ''}`}
+            className={`btn is-pdf${pdfBusy ? ' is-exporting' : ''}`}
             disabled={pdfBusy}
             onClick={downloadPdf}
           >

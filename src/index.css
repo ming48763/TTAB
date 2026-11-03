@@ -878,7 +878,10 @@ button.brand-mark:focus-visible {
   overflow: hidden;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .booth-main {
     grid-template-columns: 1fr;
   }
@@ -1449,7 +1452,10 @@ button.brand-mark:focus-visible {
   gap: 10px;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .extra-grid {
     grid-template-columns: 1fr;
   }
@@ -3572,8 +3578,21 @@ button.brand-mark:focus-visible {
   grid-column: 3;
 }
 
-.pages-preview-bar .btn.primary {
+.pages-preview-bar .btn.primary,
+.pages-preview-actions .is-pdf {
   padding: 8px 14px;
+}
+
+.pages-preview-actions .is-pdf {
+  font-weight: 400;
+}
+
+.pages-preview-bar .pages-preview-actions .is-pdf .btn-swap,
+.pages-preview-bar .pages-preview-actions .is-pdf .btn-swap > span {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .pages-preview-layout .seg button {
@@ -3638,13 +3657,20 @@ button.brand-mark:focus-visible {
   pointer-events: none;
 }
 
+.pages-pdf-source.is-text-blank .plate-item.is-field {
+  color: transparent !important;
+}
+
 .site-footer {
   margin-top: 28px;
   text-align: center;
   font-size: 0.9rem;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .toolbar-group {
     border-left: none;
     padding-left: 0;
@@ -4954,7 +4980,10 @@ button.seat-pool-add:active {
   line-height: 1.25;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .seat-setup .booth-main {
     grid-template-columns: minmax(0, 46%) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
@@ -5085,6 +5114,19 @@ button.seat-pool-add:active {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+.seat-print-actions .is-pdf {
+  padding: 10px 18px;
+  font-weight: 400;
+}
+
+.seat-print-actions .is-pdf .btn-swap,
+.seat-print-actions .is-pdf .btn-swap > span {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .seat-print-stage {
@@ -6567,7 +6609,10 @@ button.att-card:focus-visible {
   text-decoration: underline;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .snap-upload-grid {
     grid-template-columns: 1fr;
   }
@@ -7234,7 +7279,10 @@ button.att-card:focus-visible {
   font-size: 0.8rem;
 }
 
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .sweep-body {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -7247,7 +7295,10 @@ button.att-card:focus-visible {
 }
 
 /* —— RWD：平板與手機只調整版面 —— */
-@media (max-width: 900px) {
+/* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
+@media (max-width: 900px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .app:not(.step-home):not(.step-edit):not(.step-booth):not(.step-seat):not(.step-att):not(.step-snap) {
     padding: 20px 16px 48px;
   }
@@ -7356,7 +7407,7 @@ button.att-card:focus-visible {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .app:not(.step-home):not(.step-edit):not(.step-booth):not(.step-seat):not(.step-att):not(.step-snap) {
     padding: 16px 12px 40px;
   }
@@ -8741,9 +8792,14 @@ button.att-card:focus-visible {
 
 /* 行動端（手機與平板）：不影響桌面放大框（內層寬度約在 900px 以上） */
 @media (max-width: 899px) {
+  html,
+  body {
+    overscroll-behavior-y: contain;
+  }
+
   html.is-leave-guard,
   html.is-leave-guard body {
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: contain;
   }
 
   .booth-drag-card[draggable='true'],
@@ -8774,7 +8830,12 @@ button.att-card:focus-visible {
     -webkit-user-drag: none;
     touch-action: manipulation;
   }
+}
 
+/* 行動端直向，以及手機橫向。平板橫向不套用，版面沿用網頁端。 */
+@media (max-width: 899px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .preview-sync {
     display: none;
   }
@@ -8961,7 +9022,6 @@ button.att-card:focus-visible {
     background: var(--accent);
     border-color: var(--accent);
     color: #f4fff9;
-    font-weight: 700;
   }
 
   .pages-preview-actions .is-pdf:hover {
@@ -8975,8 +9035,8 @@ button.att-card:focus-visible {
   }
 }
 
-/* 手機：直向約 640px 以下，橫向則是較矮的畫面。平板不套用。 */
-@media (max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px)) {
+/* 手機：直向寬度 480px 以下。橫向要又矮又寬（高度 410px 以下、比例至少 16:9）。775×421 的平板橫向（外層約 1163×632）不算手機。 */
+@media (max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
   .app.step-home .tool-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
@@ -9300,7 +9360,7 @@ button.att-card:focus-visible {
 }
 
 /* 平板直向：預覽區高度是鎖定的，標籤要跟著每一列撐開，拉桿留在區底。 */
-@media (orientation: portrait) and (min-width: 641px) and (max-width: 899px) {
+@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
   .app.is-desk.step-map .confirm-section:first-of-type {
     flex: 2 1 50%;
   }
@@ -9396,6 +9456,469 @@ button.att-card:focus-visible {
 
   .app.is-desk.step-map .map-table.is-preview-scroll tr.preview-caption-row {
     display: none;
+  }
+}
+
+/* 平板橫向：拍貼機選擇頁、立起預覽、預覽列印、編輯器。其餘介面仍沿用網頁端橫向。 */
+@media (orientation: landscape) and (max-width: 899px) and (min-height: 411px),
+  (orientation: landscape) and (max-width: 899px) and (max-height: 410px) and (max-aspect-ratio: 1.75) {
+  .app.is-desk.step-upload {
+    box-sizing: border-box;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-upload .site-header {
+    zoom: 0.7;
+    align-items: center;
+  }
+
+  .app.is-desk.step-upload .site-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-map .preview-sync {
+    display: none;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden]) {
+    --range-thumb: 22px;
+    display: block;
+    box-sizing: border-box;
+    width: calc(100% + var(--range-thumb));
+    max-width: none;
+    min-width: 0;
+    height: var(--range-thumb);
+    margin: 8px calc(var(--range-thumb) / -2) 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    outline: none;
+    box-shadow: none;
+    cursor: pointer;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden]):focus,
+  .app.is-desk.step-map .preview-range:not([hidden]):focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden])::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #d9d3c6;
+    border-radius: 999px;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden])::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--range-thumb);
+    height: var(--range-thumb);
+    margin-top: -8px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden])::-moz-range-track {
+    height: 6px;
+    background: #d9d3c6;
+    border: 0;
+    border-radius: 999px;
+  }
+
+  .app.is-desk.step-map .preview-range:not([hidden])::-moz-range-thumb {
+    width: var(--range-thumb);
+    height: var(--range-thumb);
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .pages-preview > .pages-preview-bar {
+    zoom: 0.9;
+  }
+
+  .stand-preview {
+    width: 110px;
+  }
+
+  .stand-viewport {
+    height: 100px;
+  }
+
+  .app.is-desk .stand-preview.is-static {
+    left: 10px;
+    right: auto;
+  }
+
+  .app.step-booth .booth-step-label {
+    display: none;
+  }
+
+  .app.is-desk.step-booth .booth-main {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 42%);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-booth .booth-preview {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .app.is-desk.step-booth .booth-choose {
+    grid-column: 2;
+    grid-row: 1;
+    border-right: none;
+    border-left: 1px solid var(--line);
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .app.step-booth .booth-choose-body {
+    display: flex;
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app.step-booth .booth-actions {
+    position: static;
+    flex: none;
+    margin-top: auto;
+    padding-top: 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .app.step-booth .booth-align-seg {
+    flex: none;
+    min-height: 48px;
+    height: auto;
+  }
+
+  .app.step-booth .booth-align-seg button {
+    flex: 1 1 0;
+    min-height: 48px;
+  }
+
+  .app.step-booth .booth-drop,
+  .app.step-booth .booth-drag-card {
+    flex-shrink: 0;
+    min-height: 72px;
+  }
+
+  .app.step-booth .booth-preview,
+  .app.step-booth .booth-preview-stage {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .pages-preview {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .pages-preview-body {
+    overflow: hidden;
+    padding: clamp(8px, 1.4vh, 18px);
+    padding-bottom: clamp(56px, 9vh, 72px);
+  }
+
+  .pages-preview .preview-fit-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    column-gap: clamp(4px, 1.2vw, 12px);
+  }
+
+  .pages-preview > .pages-preview-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    align-items: center;
+    flex: none;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: visible;
+    column-gap: clamp(4px, 1.2vw, 12px);
+    padding: clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px);
+  }
+
+  .pages-preview-layout {
+    flex: 0 0 auto;
+    min-width: 0;
+    justify-content: flex-start;
+    justify-self: stretch;
+    overflow: visible;
+    white-space: nowrap;
+    grid-column: auto;
+  }
+
+  .pages-preview-layout > *,
+  .pages-preview-actions,
+  .pages-preview-split,
+  .pages-preview .toolbar-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .pages-preview-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+    justify-content: flex-end;
+    justify-self: stretch;
+    flex-wrap: nowrap;
+    grid-column: auto;
+  }
+
+  .pages-preview-pager {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    grid-column: auto;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 16px;
+    background: color-mix(in srgb, var(--card) 96%, white);
+    border-top: 1px solid var(--line);
+  }
+
+  .pages-preview-pager .preview-fit-row {
+    width: max-content;
+    margin-inline: auto;
+  }
+
+  .pages-preview-actions .is-print {
+    display: none;
+  }
+
+  .pages-preview-actions .is-pdf,
+  .pages-preview-actions .is-pdf:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #f4fff9;
+  }
+
+  .pages-preview-actions .is-pdf:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
+
+  .app.step-edit .toolbar-group {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .app.step-edit .toolbar-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .app.is-desk.step-edit {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-edit .site-main {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app.is-desk.step-edit .editor-shell {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar {
+    flex: none;
+    position: relative;
+    align-self: flex-start;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 42dvh;
+    z-index: 32;
+    overflow: visible;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop > .toolbar-drop-menu {
+    left: var(--menu-left, 0px);
+    overflow: visible;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked > .toolbar-drop-menu {
+    width: var(--menu-max, calc(100vw - 16px));
+    max-width: var(--menu-max, calc(100vw - 16px));
+    min-width: 0;
+    box-sizing: border-box;
+    max-height: min(70dvh, calc(100dvh - 96px));
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .decor-style-panel,
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .fold-style-panel {
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .decor-kinds,
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .seg {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .decor-kinds button,
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .seg button,
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .seg button + button {
+    flex: none;
+    width: 100%;
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    margin-left: 0;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .decor-kinds button:last-of-type,
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .seg button:last-of-type {
+    border-bottom: none;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .toolbar-drop.is-stacked .decor-colors {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .desk-decor-drop.is-stacked > .toolbar-drop-menu {
+    width: max-content;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .desk-decor-drop.is-stacked .decor-style-panel {
+    width: max-content;
+    max-width: none;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .desk-decor-drop.is-stacked .decor-kinds {
+    width: max-content;
+    max-width: none;
+    align-self: start;
+  }
+
+  .app.is-desk.step-edit .editor-toolbar .desk-decor-drop.is-stacked .decor-colors {
+    width: max-content;
+    max-width: none;
+  }
+
+  .app.is-desk.step-edit .editor-canvas {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app.is-desk.step-edit .editor-stage {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 28px 16px;
+  }
+
+  .app.step-edit .editor-stage.is-fit {
+    cursor: default;
+    touch-action: manipulation;
+  }
+}
+
+/* 平板：確認欄位、模式選擇（含標題與階段），以及拍貼機選擇區，縮為 70%。 */
+@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px),
+  (orientation: landscape) and (max-width: 899px) and (min-height: 411px),
+  (orientation: landscape) and (max-width: 899px) and (max-height: 410px) and (max-aspect-ratio: 1.75) {
+  .app.is-desk.step-map,
+  .app.is-desk.step-choose,
+  .app.is-desk.step-booth .booth-choose {
+    zoom: 0.7;
+  }
+
+  .app.is-desk .stand-preview.is-static {
+    left: 10px;
+    right: auto;
+  }
+}
+
+/* 平板直向：預覽改到選擇區下方，高度占比維持原樣。 */
+@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
+  .app.is-desk.step-booth .booth-choose {
+    order: 0;
+    border-top: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app.is-desk.step-booth .booth-preview {
+    order: 1;
+  }
+}
+
+.screen-debug {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 4px 10px calc(4px + env(safe-area-inset-bottom));
+  background: rgba(16, 36, 31, 0.9);
+  color: #f4fff9;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+@media print {
+  .screen-debug {
+    display: none !important;
   }
 }
 

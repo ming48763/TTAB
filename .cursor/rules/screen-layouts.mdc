@@ -1,0 +1,22 @@
+---
+description: Four layouts — desktop portrait, desktop landscape, tablet, and phone
+alwaysApply: true
+---
+
+# Screen layouts
+
+There are four layouts. 行動端 is tablet and phone together. 手機端 is the phone only.
+
+| Layout | When it applies |
+| --- | --- |
+| 網頁端直向 | Outer width ≥ 900px, portrait. The app sits in the 1.5× iframe. |
+| 網頁端橫向 | Outer width ≥ 900px, landscape. Same iframe. |
+| 平板端 | 行動端 (`max-width: 899px`) and not 手機端. Android tablets around 600px wide, and landscape tablets scaled to about 640×400, stay here. |
+| 手機端 | `max-width: 480px`, or landscape and `max-height: 410px` and `max-width: 899px` and `min-aspect-ratio: 16/9`. |
+
+- 行動端 CSS is `@media (max-width: 899px)`. Do not raise 899. Do not use 1100. A 1400px desktop window becomes an iframe about 933px wide, so it stays 網頁端.
+- iPad landscape (outer 1024) becomes an iframe about 682×512. That is 平板端. iPad Pro 12.9 landscape (outer 1366) becomes about 911px wide and stays 網頁端.
+- Phone rules come after the 899 block. Portrait phones are at most 480px wide. Landscape phones are short (`max-height: 410px`) and at least 16:9. Do not use 640px or `max-height: 430px` as the phone test. A scaled landscape tablet can be about 640×400, or 775×421 when the outer window is about 1163×632. Both stay 平板端.
+- Tablet portrait fill uses `min-width: 481px` inside the 899 block. Do not treat 481–899px as a phone.
+- 平板端橫向 keeps the 網頁端橫向 layout. The `max-width: 899px` and `max-width: 900px` layout rules apply only in portrait, or on 手機端. Card dragging on 平板端橫向 still uses the touch long-press in `src/lib/touchDrag.ts` (`max-width: 899px`). Do not switch those cards back to mouse-only dragging.
+- 平板端橫向 exceptions: the booth stand preview keeps the phone width and sits at the top-left; its viewport is tall enough that the「立起預覽」title does not cover the card. The booth stays side by side, with the preview on the left and the choose column on the right, each keeping its previous share of the width. On tablet, the desk/badge confirm page and mode page — including the header logo, title, and step rail — plus the booth choose column, are zoomed to 0.7. The booth preview is not zoomed. The import page header (logo, title, and step rail) is zoomed to 0.7 and vertically centered; the dropzone stays full size and the page does not scroll. The confirm-page preview uses the phone range slider. The desk/badge editor matches the portrait editor: the sheet scales into the viewport. Print preview matches the phone bar (single column, print hidden, green PDF), with the top bar’s buttons and text at 90%.

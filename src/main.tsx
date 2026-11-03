@@ -1,6 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { ScreenDebugBar } from './components/ScreenDebugBar'
+import { markRotateReload } from './lib/workSession'
 import { installTouchDrag } from './lib/touchDrag'
 import './index.css'
 
@@ -14,6 +16,7 @@ function mountApp() {
   createRoot(rootEl).render(
     <StrictMode>
       <App />
+      <ScreenDebugBar />
     </StrictMode>,
   )
 }
@@ -36,6 +39,7 @@ function mountScaledFrame() {
   ].join(';')
   document.documentElement.style.height = '100%'
   document.documentElement.style.overflow = 'hidden'
+  document.documentElement.style.overscrollBehaviorY = 'contain'
   document.body.style.margin = '0'
   document.body.style.height = '100%'
   document.body.style.overflow = 'hidden'
@@ -50,5 +54,8 @@ if (framed || compactScreen.matches) mountApp()
 else mountScaledFrame()
 
 if (!framed) {
-  compactScreen.addEventListener('change', () => location.reload())
+  compactScreen.addEventListener('change', () => {
+    markRotateReload()
+    location.reload()
+  })
 }

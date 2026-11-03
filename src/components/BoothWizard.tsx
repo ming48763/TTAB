@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   applyBadgeSize,
   applyCardPaperSize,
@@ -69,7 +69,7 @@ function placedIds(slots: (string | null)[]) {
   return slots.filter((id): id is string => Boolean(id))
 }
 
-type WizardStep = 'paper' | 'type' | 'layout' | 'style' | 'text' | 'extra' | 'frame'
+export type WizardStep = 'paper' | 'type' | 'layout' | 'style' | 'text' | 'extra' | 'frame'
 type ExtraKey = 'extra-0' | 'extra-1'
 type ExtraSlot = { id: string | null; scale: number; baseMm: number }
 
@@ -125,10 +125,15 @@ interface Props {
   title: string
   onChange: (settings: LayoutSettings) => void
   onBack: () => void
+  initialPhase?: WizardStep
+  onPhase?: (phase: WizardStep) => void
 }
 
-export function BoothWizard({ settings, sample, rows, title, onChange, onBack }: Props) {
-  const [phase, setPhase] = useState<WizardStep>('paper')
+export function BoothWizard({ settings, sample, rows, title, onChange, onBack, initialPhase, onPhase }: Props) {
+  const [phase, setPhase] = useState<WizardStep>(initialPhase ?? 'paper')
+  useEffect(() => {
+    onPhase?.(phase)
+  }, [phase, onPhase])
   const sourceItems = useRef(settings.items)
   const allStartIds = sourceItems.current.map((it) => it.id)
   const startLayout = defaultBoothLayoutId(allStartIds.length)
@@ -157,7 +162,13 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack }:
   useLayoutEffect(() => {
     const choose = chooseRef.current
     if (!choose) return
-    if (!window.matchMedia('(max-width: 899px)').matches) return
+    if (
+      !window.matchMedia(
+        '(max-width: 899px) and (orientation: portrait), (max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
+      ).matches
+    ) {
+      return
+    }
     choose.scrollTop = 0
   }, [phase])
   const paperSize: PaperSizeId = settings.paperGuide === 'none' ? 'A4' : settings.paperGuide

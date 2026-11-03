@@ -1,4 +1,4 @@
-/** Long-press drag for touch on compact screens. Only draggable cards wait this long. */
+/** Touch-drag for cards on phone and tablet, including tablet landscape (that layout follows the desktop stylesheet). */
 const HOLD_MS = 100
 const COMPACT = '(max-width: 899px)'
 const CARD_SELECTOR = [

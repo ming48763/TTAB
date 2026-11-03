@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type {
   ColumnMapping,
   ExtraLabelOptions,
@@ -21,33 +21,75 @@ interface Props {
   showExtrasNote?: boolean
 }
 
-function FitPreviewTag({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const max = 15.68
-    const fits = () => el.scrollWidth <= el.clientWidth + 0.5
-    el.style.fontSize = `${max}px`
-    if (fits()) return
-    let lo = 6
-    let hi = max
+const PREVIEW_FONT_MAX = 15.68
+const PREVIEW_FONT_MIN = 6
+const previewFontCache = new Map<string, string>()
+
+function previewMeasure() {
+  const canvas = document.createElement('canvas')
+  return canvas.getContext('2d')
+}
+
+let previewMeasureCtx: CanvasRenderingContext2D | null | undefined
+
+function previewTextWidth(text: string, px: number) {
+  if (previewMeasureCtx === undefined) previewMeasureCtx = previewMeasure()
+  if (!previewMeasureCtx) return text.length * px
+  previewMeasureCtx.font = `${px}px "Noto Sans TC", sans-serif`
+  return previewMeasureCtx.measureText(text).width
+}
+
+function previewFontSize(text: string, innerPx: number, fontTick: number) {
+  const content = text || '—'
+  const key = `${fontTick}|${innerPx}|${content}`
+  const cached = previewFontCache.get(key)
+  if (cached !== undefined) return cached
+  let size = ''
+  if (previewTextWidth(content, PREVIEW_FONT_MAX) > innerPx) {
+    let lo = PREVIEW_FONT_MIN
+    let hi = PREVIEW_FONT_MAX
     for (let i = 0; i < 12; i += 1) {
       const mid = (lo + hi) / 2
-      el.style.fontSize = `${mid}px`
-      if (fits()) lo = mid
+      if (previewTextWidth(content, mid) <= innerPx) lo = mid
       else hi = mid
     }
-    el.style.fontSize = `${lo}px`
-  }, [text])
-  return <span ref={ref}>{text || '—'}</span>
+    size = `${lo}px`
+  }
+  previewFontCache.set(key, size)
+  return size
+}
+
+function FitPreviewTag({ text, innerPx, fontTick }: { text: string; innerPx: number; fontTick: number }) {
+  const size = previewFontSize(text, innerPx, fontTick)
+  return <span style={size ? { fontSize: size } : undefined}>{text || '—'}</span>
 }
 
 function PreviewCells({ values }: { values: string[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [innerPx, setInnerPx] = useState(47)
+  const [fontTick, setFontTick] = useState(0)
+  useEffect(() => {
+    const fonts = document.fonts
+    if (!fonts || fonts.status === 'loaded') return
+    let cancel = false
+    void fonts.ready.then(() => {
+      if (!cancel) setFontTick((tick) => tick + 1)
+    })
+    return () => {
+      cancel = true
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const span = ref.current?.querySelector('span')
+    if (!span) return
+    const style = getComputedStyle(span)
+    const width = span.clientWidth - (Number.parseFloat(style.paddingLeft) || 0) - (Number.parseFloat(style.paddingRight) || 0)
+    if (width > 0 && Math.abs(width - innerPx) > 0.5) setInnerPx(width)
+  }, [innerPx, values.length])
   return (
-    <div className="preview-cells is-scroll">
+    <div className="preview-cells is-scroll" ref={ref}>
       {values.map((value, index) => (
-        <FitPreviewTag key={index} text={value} />
+        <FitPreviewTag key={index} text={value} innerPx={innerPx} fontTick={fontTick} />
       ))}
     </div>
   )
@@ -146,7 +188,7 @@ export function ConfirmFields({
     const grid = extraGridRef.current
     if (!grid) return
     const phone = window.matchMedia(
-      '(max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px))',
+      '(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
     )
     const cards = () => [...grid.querySelectorAll<HTMLElement>(':scope > .extra-card')]
     const contentBox = (el: HTMLElement): number => {
@@ -249,7 +291,7 @@ export function ConfirmFields({
     const onWheel = (event: WheelEvent) => {
       if (bar.hidden && !usingRange()) return
       const phone = window.matchMedia(
-        '(max-width: 640px), ((orientation: landscape) and (max-height: 500px) and (max-width: 899px))',
+        '(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
       ).matches
       if (phone && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY

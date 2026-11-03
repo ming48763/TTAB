@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { ConfirmFields } from '../components/ConfirmFields'
 import { ExcelUpload } from '../components/ExcelUpload'
@@ -7,6 +7,7 @@ import { SeatingSetup } from '../components/SeatingSetup'
 import { StepRail } from '../components/StepRail'
 import type { ClassroomDoor, RoomShape, SeatGroupMode } from '../lib/seating'
 import type { ColumnMapping, ExtraLabelOptions, StudentRow } from '../types'
+import { savedData, usePersistWork } from '../lib/workSession'
 
 const defaultExtras = (): ExtraLabelOptions => ({
   useSequence: false,
@@ -19,23 +20,44 @@ const defaultExtras = (): ExtraLabelOptions => ({
 
 type Step = 'upload' | 'map' | 'setup' | 'assign'
 
+type SeatSnapshot = {
+  step: Step
+  fileName: string | null
+  rawRows: StudentRow[]
+  mappings: ColumnMapping[]
+  extras: ExtraLabelOptions
+  mode: SeatGroupMode
+  rows: number
+  cols: number
+  shape: RoomShape
+  doors: ClassroomDoor[]
+  assignments: Record<string, string>
+  setupAtDoors: boolean
+}
+
 interface Props {
   onHome: () => void
 }
 
 export function SeatingTool({ onHome }: Props) {
-  const [step, setStep] = useState<Step>('upload')
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [rawRows, setRawRows] = useState<StudentRow[]>([])
-  const [mappings, setMappings] = useState<ColumnMapping[]>([])
-  const [extras, setExtras] = useState<ExtraLabelOptions>(defaultExtras)
-  const [mode, setMode] = useState<SeatGroupMode>('chess')
-  const [rows, setRows] = useState(5)
-  const [cols, setCols] = useState(4)
-  const [shape, setShape] = useState<RoomShape>('portrait')
-  const [doors, setDoors] = useState<ClassroomDoor[]>([])
-  const [assignments, setAssignments] = useState<Record<string, string>>({})
-  const [setupAtDoors, setSetupAtDoors] = useState(false)
+  const saved = savedData<SeatSnapshot>('seats')
+  const [step, setStep] = useState<Step>(saved?.step ?? 'upload')
+  const [fileName, setFileName] = useState<string | null>(saved?.fileName ?? null)
+  const [rawRows, setRawRows] = useState<StudentRow[]>(saved?.rawRows ?? [])
+  const [mappings, setMappings] = useState<ColumnMapping[]>(saved?.mappings ?? [])
+  const [extras, setExtras] = useState<ExtraLabelOptions>(saved?.extras ?? defaultExtras)
+  const [mode, setMode] = useState<SeatGroupMode>(saved?.mode ?? 'chess')
+  const [rows, setRows] = useState(saved?.rows ?? 5)
+  const [cols, setCols] = useState(saved?.cols ?? 4)
+  const [shape, setShape] = useState<RoomShape>(saved?.shape ?? 'portrait')
+  const [doors, setDoors] = useState<ClassroomDoor[]>(saved?.doors ?? [])
+  const [assignments, setAssignments] = useState<Record<string, string>>(saved?.assignments ?? {})
+  const [setupAtDoors, setSetupAtDoors] = useState(saved?.setupAtDoors ?? false)
+  const snapshot = useMemo<SeatSnapshot>(
+    () => ({ step, fileName, rawRows, mappings, extras, mode, rows, cols, shape, doors, assignments, setupAtDoors }),
+    [step, fileName, rawRows, mappings, extras, mode, rows, cols, shape, doors, assignments, setupAtDoors],
+  )
+  usePersistWork('seats', snapshot)
 
   function resetToUpload() {
     setStep('upload')

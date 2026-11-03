@@ -273,10 +273,11 @@ export const BOOTH_CORNER_CHOICES = [
 ]
 
 export function boothSlotCount(layoutId: string): number {
+  if (layoutId.startsWith('corner-')) return 2
   const id = layoutId.replace(/-(tl|tr|bl|br)$/, '')
   if (id.startsWith('four-') || id.startsWith('grid-')) return 4
   if (id.startsWith('three-')) return 3
-  if (id.startsWith('two-') || id.startsWith('corner-')) return 2
+  if (id.startsWith('two-')) return 2
   if (id.startsWith('one-')) return 1
   return 4
 }

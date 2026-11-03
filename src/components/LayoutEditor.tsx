@@ -39,9 +39,11 @@ import { PlateCard } from './PlateCard'
 import { PrintPreview } from './PrintPreview'
 import { PagesPreview } from './PagesPreview'
 
+/** 手機、平板直向，以及平板橫向。編輯器在平板橫向維持原本的觸控狀態。 */
 function isCompactScreen() {
   return window.matchMedia('(max-width: 899px)').matches
 }
+import { EDITOR_FIT_SCREEN } from '../lib/screenLayout'
 import { StandPreview } from './StandPreview'
 import type { PrintImposition } from '../lib/printLayout'
 
@@ -142,8 +144,8 @@ function naturalMenuWidth(drop: HTMLElement, menu: HTMLElement) {
 function fitEditorToolbarMenus(toolbar: HTMLElement | null) {
   if (!toolbar) return
   const drops = [...toolbar.querySelectorAll<HTMLElement>('.toolbar-row .toolbar-drop')]
-  const portrait = window.matchMedia('(orientation: portrait)').matches
-  if (!portrait) {
+  const fitScreen = window.matchMedia(EDITOR_FIT_SCREEN).matches
+  if (!fitScreen) {
     for (const drop of drops) {
       drop.classList.remove('is-stacked')
       drop.style.removeProperty('--menu-left')
@@ -567,17 +569,17 @@ export function LayoutEditor({
   const imageInputRef = useRef<HTMLInputElement>(null)
   const paperRef = useRef<HTMLDivElement>(null)
   const panDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
-  const [portrait, setPortrait] = useState(false)
+  const [fitScreen, setFitScreen] = useState(false)
   const [panning, setPanning] = useState(false)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [fit, setFit] = useState({ scale: 1, w: 0, h: 0 })
-  const fitMode = portrait && (settings.mode === 'desk' || isBadge)
+  const fitMode = fitScreen && (settings.mode === 'desk' || isBadge)
   const fitRef = useRef(fit)
   fitRef.current = fit
 
   useEffect(() => {
-    const mq = window.matchMedia('(orientation: portrait)')
-    const sync = () => setPortrait(mq.matches)
+    const mq = window.matchMedia(EDITOR_FIT_SCREEN)
+    const sync = () => setFitScreen(mq.matches)
     sync()
     mq.addEventListener('change', sync)
     return () => mq.removeEventListener('change', sync)
@@ -593,7 +595,7 @@ export function LayoutEditor({
     const fit = () => fitEditorToolbarMenus(toolbar)
     const ro = new ResizeObserver(fit)
     ro.observe(toolbar)
-    const mq = window.matchMedia('(orientation: portrait)')
+    const mq = window.matchMedia(EDITOR_FIT_SCREEN)
     mq.addEventListener('change', fit)
     const fonts = document.fonts
     const onFonts = () => fit()

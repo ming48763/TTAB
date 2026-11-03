@@ -264,7 +264,7 @@ export function PlateFace({
         return (
           <div
             key={item.id}
-            className={`plate-item ${item.kind === 'image' ? 'is-image' : ''} ${interactive ? 'is-draggable' : ''} ${selected ? 'is-selected' : ''} ${grouped ? 'is-grouped' : ''} ${fresh ? 'is-fresh' : ''} ${boothHot ? 'is-booth-hot' : ''}`}
+            className={`plate-item${item.kind === 'field' ? ' is-field' : ''}${item.kind === 'image' ? ' is-image' : ''} ${interactive ? 'is-draggable' : ''} ${selected ? 'is-selected' : ''} ${grouped ? 'is-grouped' : ''} ${fresh ? 'is-fresh' : ''} ${boothHot ? 'is-booth-hot' : ''}`}
             data-item-id={item.id}
             style={{
               left: `${item.x}%`,

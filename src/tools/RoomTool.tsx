@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { ExcelUpload } from '../components/ExcelUpload'
 import { RoomBoard, type RoomPerson } from '../components/RoomBoard'
@@ -7,8 +7,19 @@ import { StepRail } from '../components/StepRail'
 import { buildRooms, type RoomUnit } from '../lib/roomPlan'
 import type { ColumnMapping, StudentRow } from '../types'
 import { uid } from '../types'
+import { savedData, usePersistWork } from '../lib/workSession'
 
 type Step = 'upload' | 'rooms' | 'assign'
+
+type RoomSnapshot = {
+  step: Step
+  fileName: string | null
+  rawRows: StudentRow[]
+  mappings: ColumnMapping[]
+  drafts: RoomSpecDraft[]
+  rooms: RoomUnit[]
+  rolePeople: RoomPerson[]
+}
 
 interface Props {
   onHome: () => void
@@ -24,13 +35,19 @@ function freshDrafts(): RoomSpecDraft[] {
 }
 
 export function RoomTool({ onHome }: Props) {
-  const [step, setStep] = useState<Step>('upload')
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [rawRows, setRawRows] = useState<StudentRow[]>([])
-  const [mappings, setMappings] = useState<ColumnMapping[]>([])
-  const [drafts, setDrafts] = useState<RoomSpecDraft[]>(freshDrafts)
-  const [rooms, setRooms] = useState<RoomUnit[]>([])
-  const [rolePeople, setRolePeople] = useState<RoomPerson[]>([])
+  const saved = savedData<RoomSnapshot>('rooms')
+  const [step, setStep] = useState<Step>(saved?.step ?? 'upload')
+  const [fileName, setFileName] = useState<string | null>(saved?.fileName ?? null)
+  const [rawRows, setRawRows] = useState<StudentRow[]>(saved?.rawRows ?? [])
+  const [mappings, setMappings] = useState<ColumnMapping[]>(saved?.mappings ?? [])
+  const [drafts, setDrafts] = useState<RoomSpecDraft[]>(saved?.drafts?.length ? saved.drafts : freshDrafts)
+  const [rooms, setRooms] = useState<RoomUnit[]>(saved?.rooms ?? [])
+  const [rolePeople, setRolePeople] = useState<RoomPerson[]>(saved?.rolePeople ?? [])
+  const snapshot = useMemo<RoomSnapshot>(
+    () => ({ step, fileName, rawRows, mappings, drafts, rooms, rolePeople }),
+    [step, fileName, rawRows, mappings, drafts, rooms, rolePeople],
+  )
+  usePersistWork('rooms', snapshot)
 
   function resetToUpload() {
     setStep('upload')

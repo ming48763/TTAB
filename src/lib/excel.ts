@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx'
 import type { ColumnMapping, FieldRole, StudentRow } from '../types'
-
 const ROLE_HINTS: { role: FieldRole; patterns: RegExp[] }[] = [
   {
     role: 'seat',
@@ -19,8 +18,47 @@ const ROLE_HINTS: { role: FieldRole; patterns: RegExp[] }[] = [
 const HEADER_HINT =
   /班級|班別|座號|座号|座次|學號|学号|姓名|名字|家長|家长|性別|性别|備註|备注|電話|电话|地址|^name$|^no\.?$|^id$|^class$/i
 
+/** Column titles that must not be imported. Order matters: 手機 before 電話. */
+const SENSITIVE_COLUMNS: { label: string; patterns: RegExp[] }[] = [
+  {
+    label: '身分證字號',
+    patterns: [/身分證/, /身份證/, /身份字號/, /身分字號/, /national\s*id/i],
+  },
+  {
+    label: '手機號碼',
+    patterns: [/手機/, /行动电话/, /行動電話/, /mobile\s*(no|num|phone)?/i, /cell\s*phone/i],
+  },
+  {
+    label: '電話號碼',
+    patterns: [/電話/, /电话/, /tel(ephone)?/i, /\bphone\b/i],
+  },
+  {
+    label: '出生年月日',
+    patterns: [/出生/, /生日/, /birth/i, /\bdob\b/i],
+  },
+]
+
 function cellText(cell: string | number | boolean | null | undefined) {
   return String(cell ?? '').trim()
+}
+
+/** Labels of sensitive headers found in the sheet, in display order. */
+export function findSensitiveColumnLabels(headers: string[]): string[] {
+  const found: string[] = []
+  for (const header of headers) {
+    const text = header.trim()
+    if (!text) continue
+    for (const rule of SENSITIVE_COLUMNS) {
+      if (!rule.patterns.some((p) => p.test(text))) continue
+      if (!found.includes(rule.label)) found.push(rule.label)
+      break
+    }
+  }
+  return found
+}
+
+export function sensitiveColumnsMessage(labels: string[]) {
+  return `內含${labels.join('、')}等敏感個資，本網站將不會匯入`
 }
 
 function looksLikeHeaderCell(text: string) {
@@ -288,6 +326,11 @@ export async function parseExcelFile(file: ArrayBuffer): Promise<ParsedWorkbook>
     return count === 0 ? h : `${h}_${count + 1}`
   })
 
+  const sensitive = findSensitiveColumnLabels(rawHeaders)
+  if (sensitive.length > 0) {
+    throw new ExcelLimitError(sensitiveColumnsMessage(sensitive))
+  }
+
   const rows: StudentRow[] = []
   for (let i = dataStart; i < matrix.length; i++) {
     const line = matrix[i] ?? []
@@ -318,14 +361,4 @@ export async function parseExcelFile(file: ArrayBuffer): Promise<ParsedWorkbook>
   })
 
   return { headers, rows, mappings }
-}
-
-/** 檔案視窗關閉時，系統會把那一下點擊送到頁面上。短時間內擋掉，避免點到「重新上傳」。 */
-export function swallowFollowingClick() {
-  const stop = (event: Event) => {
-    event.preventDefault()
-    event.stopPropagation()
-  }
-  document.addEventListener('click', stop, true)
-  window.setTimeout(() => document.removeEventListener('click', stop, true), 1000)
 }
