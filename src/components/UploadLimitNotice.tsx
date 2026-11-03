@@ -1,13 +1,14 @@
 interface Props {
   message: string
+  title?: string
   onClose: () => void
 }
 
-export function UploadLimitNotice({ message, onClose }: Props) {
+export function UploadLimitNotice({ message, title = '上傳失敗', onClose }: Props) {
   return (
     <div className="seat-notice" role="alertdialog" aria-modal="true" aria-labelledby="upload-limit-title">
       <div className="seat-notice-card">
-        <h3 id="upload-limit-title">上傳失敗</h3>
+        <h3 id="upload-limit-title">{title}</h3>
         {message.split('\n').map((line) => (
           <p key={line}>{line}</p>
         ))}

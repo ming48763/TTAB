@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { StepRail } from '../components/StepRail'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import {
+  ExcelLimitError,
+  assertXlsxSize,
+  fileUploadDialogMessage,
+  parseExcelFile,
+  sensitiveColumnsMessage,
+} from '../lib/excel'
 import { swallowFollowingClick } from '../lib/swallowClick'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import {
@@ -66,6 +72,7 @@ export function SnapSheetTool({ onHome }: Props) {
   const [status, setStatus] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
+  const [limitTitle, setLimitTitle] = useState('上傳失敗')
   const [roster, setRoster] = useState<RosterPerson[]>(saved?.roster ?? [])
   const [rosterName, setRosterName] = useState(saved?.rosterName ?? '')
   const [wantTotal, setWantTotal] = useState(saved?.wantTotal ?? false)
@@ -151,16 +158,23 @@ export function SnapSheetTool({ onHome }: Props) {
   async function onRosterFile(file: File) {
     setError(null)
     setLimitMessage(null)
+    setLimitTitle('上傳失敗')
     try {
       assertXlsxSize(file)
       const parsed = await parseExcelFile(await file.arrayBuffer())
       const people = rosterFromStudents(parsed.rows, parsed.mappings)
       setRoster(people)
       setRosterName(file.name)
+      if (parsed.skippedSensitive?.length) {
+        setLimitTitle('注意')
+        setLimitMessage(sensitiveColumnsMessage(parsed.skippedSensitive))
+      }
     } catch (e) {
       const dialog = e instanceof ExcelLimitError ? e.message : fileUploadDialogMessage(e)
-      if (dialog) setLimitMessage(dialog)
-      else setError(e instanceof Error ? e.message : '名單讀取失敗')
+      if (dialog) {
+        setLimitTitle('上傳失敗')
+        setLimitMessage(dialog)
+      } else setError(e instanceof Error ? e.message : '名單讀取失敗')
     }
   }
 
@@ -379,7 +393,16 @@ export function SnapSheetTool({ onHome }: Props) {
             </div>
           </div>
         </main>
-        {limitMessage ? <UploadLimitNotice message={limitMessage} onClose={() => setLimitMessage(null)} /> : null}
+        {limitMessage ? (
+          <UploadLimitNotice
+            title={limitTitle}
+            message={limitMessage}
+            onClose={() => {
+              setLimitMessage(null)
+              setLimitTitle('上傳失敗')
+            }}
+          />
+        ) : null}
       </div>
     )
   }

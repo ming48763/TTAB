@@ -1,19 +1,27 @@
 import { useRef, useState } from 'react'
-import { ExcelLimitError, assertXlsxSize, fileUploadDialogMessage, parseExcelFile } from '../lib/excel'
+import {
+  ExcelLimitError,
+  assertXlsxSize,
+  fileUploadDialogMessage,
+  parseExcelFile,
+  sensitiveColumnsMessage,
+} from '../lib/excel'
 import { swallowFollowingClick } from '../lib/swallowClick'
 import type { ColumnMapping, StudentRow } from '../types'
 import { UploadLimitNotice } from './UploadLimitNotice'
+
+type LoadedPayload = {
+  fileName: string
+  headers: string[]
+  rows: StudentRow[]
+  mappings: ColumnMapping[]
+}
 
 interface Props {
   lead?: string
   dropHint?: string | null
   centerHead?: boolean
-  onLoaded: (payload: {
-    fileName: string
-    headers: string[]
-    rows: StudentRow[]
-    mappings: ColumnMapping[]
-  }) => void
+  onLoaded: (payload: LoadedPayload) => void
 }
 
 export function ExcelUpload({
@@ -23,8 +31,10 @@ export function ExcelUpload({
   centerHead = true,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const pendingLoad = useRef<LoadedPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
+  const [limitTitle, setLimitTitle] = useState('上傳失敗')
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -36,24 +46,43 @@ export function ExcelUpload({
     input.click()
   }
 
+  function finishNotice() {
+    setLimitMessage(null)
+    setLimitTitle('上傳失敗')
+    const pending = pendingLoad.current
+    pendingLoad.current = null
+    if (pending) onLoaded(pending)
+  }
+
   async function handleFile(file: File) {
     setError(null)
     setLimitMessage(null)
+    setLimitTitle('上傳失敗')
+    pendingLoad.current = null
     setBusy(true)
     try {
       assertXlsxSize(file)
       const buffer = await file.arrayBuffer()
       const parsed = await parseExcelFile(buffer)
-      onLoaded({
+      const payload: LoadedPayload = {
         fileName: file.name,
         headers: parsed.headers,
         rows: parsed.rows,
         mappings: parsed.mappings,
-      })
+      }
+      if (parsed.skippedSensitive?.length) {
+        pendingLoad.current = payload
+        setLimitTitle('注意')
+        setLimitMessage(sensitiveColumnsMessage(parsed.skippedSensitive))
+      } else {
+        onLoaded(payload)
+      }
     } catch (e) {
       const dialog = e instanceof ExcelLimitError ? e.message : fileUploadDialogMessage(e)
-      if (dialog) setLimitMessage(dialog)
-      else setError(e instanceof Error ? e.message : '讀取失敗')
+      if (dialog) {
+        setLimitTitle('上傳失敗')
+        setLimitMessage(dialog)
+      } else setError(e instanceof Error ? e.message : '讀取失敗')
     } finally {
       setBusy(false)
     }
@@ -108,7 +137,7 @@ export function ExcelUpload({
 
         {error && <p className="form-error">{error}</p>}
       </div>
-      {limitMessage ? <UploadLimitNotice message={limitMessage} onClose={() => setLimitMessage(null)} /> : null}
+      {limitMessage ? <UploadLimitNotice title={limitTitle} message={limitMessage} onClose={finishNotice} /> : null}
     </div>
   )
 }

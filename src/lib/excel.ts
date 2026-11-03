@@ -42,17 +42,21 @@ function cellText(cell: string | number | boolean | null | undefined) {
   return String(cell ?? '').trim()
 }
 
+function sensitiveLabelOf(header: string): string | null {
+  const text = header.trim()
+  if (!text) return null
+  for (const rule of SENSITIVE_COLUMNS) {
+    if (rule.patterns.some((p) => p.test(text))) return rule.label
+  }
+  return null
+}
+
 /** Labels of sensitive headers found in the sheet, in display order. */
 export function findSensitiveColumnLabels(headers: string[]): string[] {
   const found: string[] = []
   for (const header of headers) {
-    const text = header.trim()
-    if (!text) continue
-    for (const rule of SENSITIVE_COLUMNS) {
-      if (!rule.patterns.some((p) => p.test(text))) continue
-      if (!found.includes(rule.label)) found.push(rule.label)
-      break
-    }
+    const label = sensitiveLabelOf(header)
+    if (label && !found.includes(label)) found.push(label)
   }
   return found
 }
@@ -148,6 +152,8 @@ export interface ParsedWorkbook {
   headers: string[]
   rows: StudentRow[]
   mappings: ColumnMapping[]
+  /** Sensitive column types that were dropped and never enter the app. */
+  skippedSensitive?: string[]
 }
 
 export const EXCEL_MAX_BYTES = 5 * 1024 * 1024
@@ -318,18 +324,22 @@ export async function parseExcelFile(file: ArrayBuffer): Promise<ParsedWorkbook>
           ),
         )
 
+  const skippedSensitive = findSensitiveColumnLabels(rawHeaders)
+  const keepIndexes = rawHeaders
+    .map((header, index) => (sensitiveLabelOf(header) ? -1 : index))
+    .filter((index) => index >= 0)
+  if (keepIndexes.length === 0) {
+    throw new ExcelLimitError(sensitiveColumnsMessage(skippedSensitive))
+  }
+
+  const keptRaw = keepIndexes.map((index) => rawHeaders[index]!)
   // Deduplicate headers
   const seen = new Map<string, number>()
-  const headers = rawHeaders.map((h) => {
+  const headers = keptRaw.map((h) => {
     const count = seen.get(h) ?? 0
     seen.set(h, count + 1)
     return count === 0 ? h : `${h}_${count + 1}`
   })
-
-  const sensitive = findSensitiveColumnLabels(rawHeaders)
-  if (sensitive.length > 0) {
-    throw new ExcelLimitError(sensitiveColumnsMessage(sensitive))
-  }
 
   const rows: StudentRow[] = []
   for (let i = dataStart; i < matrix.length; i++) {
@@ -337,7 +347,8 @@ export async function parseExcelFile(file: ArrayBuffer): Promise<ParsedWorkbook>
     const values: Record<string, string> = {}
     let empty = true
     headers.forEach((header, col) => {
-      const v = String(line[col] ?? '').trim()
+      const source = keepIndexes[col]!
+      const v = String(line[source] ?? '').trim()
       values[header] = v
       if (v) empty = false
     })
@@ -360,5 +371,10 @@ export async function parseExcelFile(file: ArrayBuffer): Promise<ParsedWorkbook>
     }
   })
 
-  return { headers, rows, mappings }
+  return {
+    headers,
+    rows,
+    mappings,
+    skippedSensitive: skippedSensitive.length > 0 ? skippedSensitive : undefined,
+  }
 }
