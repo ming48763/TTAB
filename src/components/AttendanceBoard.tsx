@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { AttendanceCard, AttendanceCardKind, PeriodLevel } from '../lib/attendance'
 import { seatsBetween, speakChain, findSeatPeriodConflicts, toolCards, PERIOD_LABELS } from '../lib/attendance'
+import { matchesCompactScreen } from '../lib/screenLayout'
 
 const KIND_TITLE: Record<Exclude<AttendanceCardKind, 'tool'>, string> = {
   seat: '座號',
@@ -71,6 +72,18 @@ function readDrag(e: DragEvent) {
 const LATE_LABELS = new Set(['遲到', '早退', '曠課'])
 const SPAN_PERIODS = new Set<string>(PERIOD_LABELS.slice(-3))
 
+function useCompactScreen() {
+  const [compact, setCompact] = useState(matchesCompactScreen)
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 899px)')
+    const sync = () => setCompact(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
+  return compact
+}
+
 function CardFace({
   card,
   onKind,
@@ -80,6 +93,7 @@ function CardFace({
   label,
   draggable = true,
   onPick,
+  compact = false,
 }: {
   card: AttendanceCard
   onKind: (kind: AttendanceCardKind | null) => void
@@ -89,25 +103,59 @@ function CardFace({
   label?: string
   draggable?: boolean
   onPick?: (card: AttendanceCard) => void
+  compact?: boolean
 }) {
+  const className = `att-card is-${card.kind}${picked ? ' is-picked' : ''}${card.label === '到' ? ' is-to' : ''}${muted ? ' is-muted' : ''}${confirm ? ' is-confirm' : ''}${compact ? ' booth-drag-card' : ''}`
+  const canDrag = draggable && !muted
+
+  function onDragStart(e: DragEvent) {
+    if (!canDrag) {
+      e.preventDefault()
+      return
+    }
+    onKind(card.kind)
+    e.dataTransfer.setData('text/plain', `card:${JSON.stringify(card)}`)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
+  function onClick() {
+    if (!muted) onPick?.(card)
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (muted) return
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    onPick?.(card)
+  }
+
+  /* Phone/tablet: same drag host as seat-pool cards (<div.booth-drag-card>); look stays .att-card. */
+  if (compact) {
+    return (
+      <div
+        role="button"
+        tabIndex={muted ? -1 : 0}
+        aria-disabled={muted || undefined}
+        className={className}
+        draggable={canDrag}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        onDragStart={onDragStart}
+        onDragEnd={() => onKind(null)}
+      >
+        <strong>{label ?? card.label}</strong>
+      </div>
+    )
+  }
+
   return (
     <button
       type="button"
-      className={`att-card is-${card.kind}${picked ? ' is-picked' : ''}${card.label === '到' ? ' is-to' : ''}${muted ? ' is-muted' : ''}${confirm ? ' is-confirm' : ''}`}
-      draggable={draggable && !muted}
+      className={className}
+      draggable={canDrag}
       disabled={muted}
-      onClick={() => {
-        if (!muted) onPick?.(card)
-      }}
-      onDragStart={(e) => {
-        if (!draggable || muted) {
-          e.preventDefault()
-          return
-        }
-        onKind(card.kind)
-        e.dataTransfer.setData('text/plain', `card:${JSON.stringify(card)}`)
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
+      onClick={onClick}
+      onDragStart={onDragStart}
       onDragEnd={() => onKind(null)}
     >
       <strong>{label ?? card.label}</strong>
@@ -126,6 +174,7 @@ function CardRack({
   lockedLabels,
   onPick,
   footer,
+  compact = false,
 }: {
   kind: Exclude<AttendanceCardKind, 'tool'>
   cards: AttendanceCard[]
@@ -137,6 +186,7 @@ function CardRack({
   lockedLabels?: Set<string>
   onPick?: (card: AttendanceCard) => void
   footer?: ReactNode
+  compact?: boolean
 }) {
   const groups =
     kind === 'reason'
@@ -164,6 +214,7 @@ function CardRack({
                   muted={muted || lockedLabels?.has(card.label)}
                   draggable={card.label !== '到' && !lockedLabels?.has(card.label)}
                   onPick={onPick}
+                  compact={compact}
                 />
               ))}
             </div>
@@ -196,6 +247,7 @@ export function AttendanceBoard({
   onDeletePack,
   onClearPacks,
 }: Props) {
+  const compact = useCompactScreen()
   const canPlay = chains.some((row) => speakChain(row, periodLevel))
   const dragKind = useRef<AttendanceCardKind | 'pack' | 'chain' | null>(null)
   const [dropZone, setDropZone] = useState<'pull' | 'palette' | 'pack' | null>(null)
@@ -449,55 +501,93 @@ export function AttendanceBoard({
                   setInsert({ row: rowIndex, after })
                 }}
               >
-                <button
-                  type="button"
-                  className={`att-brick is-handle${
-                    insert?.row === rowIndex && insert.after === -1 ? ' is-insert' : ''
-                  }`}
-                  draggable
-                  aria-label="拖動整串"
-                  title="拖動整串"
-                  onDragStart={(e) => {
-                    dragKind.current = 'chain'
-                    e.dataTransfer.setData('text/plain', `chain:${row[0].runId}`)
-                    e.dataTransfer.effectAllowed = 'move'
-                  }}
-                  onDragEnd={() => {
-                    dragKind.current = null
-                    setInsert(null)
-                    setChainDrop(null)
-                  }}
-                  onDrop={(e) => {
-                    if (!dragKind.current || dragKind.current === 'pack' || dragKind.current === 'chain') return
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setInsert(null)
-                    const drag = readDrag(e)
-                    if (drag?.kind === 'brick') {
-                      const moved = chains.flat().find((b) => b.runId === drag.id)
-                      if (moved) onInsert(rowIndex, -1, moved, drag.id)
-                      return
-                    }
-                    const card = drag?.kind === 'card' ? drag.card : null
-                    if (card) onInsert(rowIndex, -1, card)
-                  }}
-                >
-                  <span className="att-handle-dots" aria-hidden />
-                </button>
-                <div className="att-chain-bricks">
-                {row.map((block, blockIndex) => (
-                  <button
-                    key={block.runId}
-                    type="button"
-                    data-att-brick={blockIndex}
-                    className={`att-brick is-${block.kind}${
-                      insert?.row === rowIndex && insert.after === blockIndex ? ' is-insert' : ''
-                    }${activeTool === block.runId ? ' is-active' : ''}`}
+                {compact ? (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`att-brick is-handle booth-drag-card${
+                      insert?.row === rowIndex && insert.after === -1 ? ' is-insert' : ''
+                    }`}
                     draggable
-                    onClick={() => {
-                      if (block.kind === 'tool') clickToolBrick(block)
+                    aria-label="拖動整串"
+                    title="拖動整串"
+                    onDragStart={(e) => {
+                      dragKind.current = 'chain'
+                      e.dataTransfer.setData('text/plain', `chain:${row[0].runId}`)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragEnd={() => {
+                      dragKind.current = null
+                      setInsert(null)
+                      setChainDrop(null)
                     }}
                     onDrop={(e) => {
+                      if (!dragKind.current || dragKind.current === 'pack' || dragKind.current === 'chain') return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setInsert(null)
+                      const drag = readDrag(e)
+                      if (drag?.kind === 'brick') {
+                        const moved = chains.flat().find((b) => b.runId === drag.id)
+                        if (moved) onInsert(rowIndex, -1, moved, drag.id)
+                        return
+                      }
+                      const card = drag?.kind === 'card' ? drag.card : null
+                      if (card) onInsert(rowIndex, -1, card)
+                    }}
+                  >
+                    <span className="att-handle-dots" aria-hidden />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`att-brick is-handle${
+                      insert?.row === rowIndex && insert.after === -1 ? ' is-insert' : ''
+                    }`}
+                    draggable
+                    aria-label="拖動整串"
+                    title="拖動整串"
+                    onDragStart={(e) => {
+                      dragKind.current = 'chain'
+                      e.dataTransfer.setData('text/plain', `chain:${row[0].runId}`)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragEnd={() => {
+                      dragKind.current = null
+                      setInsert(null)
+                      setChainDrop(null)
+                    }}
+                    onDrop={(e) => {
+                      if (!dragKind.current || dragKind.current === 'pack' || dragKind.current === 'chain') return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setInsert(null)
+                      const drag = readDrag(e)
+                      if (drag?.kind === 'brick') {
+                        const moved = chains.flat().find((b) => b.runId === drag.id)
+                        if (moved) onInsert(rowIndex, -1, moved, drag.id)
+                        return
+                      }
+                      const card = drag?.kind === 'card' ? drag.card : null
+                      if (card) onInsert(rowIndex, -1, card)
+                    }}
+                  >
+                    <span className="att-handle-dots" aria-hidden />
+                  </button>
+                )}
+                <div className="att-chain-bricks">
+                {row.map((block, blockIndex) => {
+                  const brickClass = `att-brick is-${block.kind}${
+                    insert?.row === rowIndex && insert.after === blockIndex ? ' is-insert' : ''
+                  }${activeTool === block.runId ? ' is-active' : ''}${compact ? ' booth-drag-card' : ''}`
+                  const brickProps = {
+                    'data-att-brick': blockIndex,
+                    className: brickClass,
+                    draggable: true as const,
+                    onClick: () => {
+                      if (block.kind === 'tool') clickToolBrick(block)
+                    },
+                    onDrop: (e: DragEvent) => {
                       if (!dragKind.current || dragKind.current === 'pack') return
                       e.preventDefault()
                       e.stopPropagation()
@@ -516,21 +606,38 @@ export function AttendanceBoard({
                       }
                       const card = drag?.kind === 'card' ? drag.card : null
                       if (card) onInsert(hint.row, hint.after, card)
-                    }}
-                    onDragStart={(e) => {
+                    },
+                    onDragStart: (e: DragEvent) => {
                       dragKind.current = block.kind
                       e.dataTransfer.setData('text/plain', `brick:${block.runId}`)
                       e.dataTransfer.effectAllowed = 'move'
-                    }}
-                    onDragEnd={() => {
+                    },
+                    onDragEnd: () => {
                       dragKind.current = null
                       setInsert(null)
                       setChainDrop(null)
-                    }}
-                  >
-                    <strong>{block.label}</strong>
-                  </button>
-                ))}
+                    },
+                  }
+                  return compact ? (
+                    <div
+                      key={block.runId}
+                      role="button"
+                      tabIndex={0}
+                      {...brickProps}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return
+                        e.preventDefault()
+                        if (block.kind === 'tool') clickToolBrick(block)
+                      }}
+                    >
+                      <strong>{block.label}</strong>
+                    </div>
+                  ) : (
+                    <button key={block.runId} type="button" {...brickProps}>
+                      <strong>{block.label}</strong>
+                    </button>
+                  )
+                })}
                 </div>
               </div>
             ))}
@@ -590,24 +697,29 @@ export function AttendanceBoard({
             {packs.map((pack) => {
               const { reason, rest } = packParts(pack.text)
               const hasClash = pack.blocks.some((b) => b.kind === 'seat' && clashSeats.has(Number(b.label)))
-              return (
-              <button
-                key={pack.id}
-                type="button"
-                className={`att-pack${hasClash ? ' is-clash' : ''}`}
-                draggable
-                onDragStart={(e) => {
+              const packClass = `att-pack${hasClash ? ' is-clash' : ''}${compact ? ' booth-drag-card' : ''}`
+              const packDrag = {
+                className: packClass,
+                draggable: true as const,
+                onDragStart: (e: DragEvent) => {
                   dragKind.current = 'pack'
                   e.dataTransfer.setData('text/plain', `pack:${pack.id}`)
                   e.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragEnd={() => {
+                },
+                onDragEnd: () => {
                   dragKind.current = null
-                }}
-              >
-                <strong className="att-pack-reason">{reason}</strong>
-                {rest}
-              </button>
+                },
+              }
+              return compact ? (
+                <div key={pack.id} role="button" tabIndex={0} {...packDrag}>
+                  <strong className="att-pack-reason">{reason}</strong>
+                  {rest}
+                </div>
+              ) : (
+                <button key={pack.id} type="button" {...packDrag}>
+                  <strong className="att-pack-reason">{reason}</strong>
+                  {rest}
+                </button>
               )
             })}
           </div>
@@ -652,6 +764,7 @@ export function AttendanceBoard({
             onKind={(k) => (dragKind.current = k)}
             pickedIds={new Set(picked.filter((c) => c.kind === 'seat').map((c) => c.id))}
             onPick={pickCard}
+            compact={compact}
             footer={
               <div className="att-tool-row">
                 {tools.map((card) => {
@@ -668,6 +781,7 @@ export function AttendanceBoard({
                       draggable={false}
                       onKind={(k) => (dragKind.current = k)}
                       onPick={() => startMode(mode)}
+                      compact={compact}
                     />
                   )
                 })}
@@ -680,6 +794,7 @@ export function AttendanceBoard({
             shown={rackTab === 'reason'}
             muted={pickMode !== null}
             onKind={(k) => (dragKind.current = k)}
+            compact={compact}
           />
           <CardRack
             kind="period"
@@ -690,6 +805,7 @@ export function AttendanceBoard({
             onKind={(k) => (dragKind.current = k)}
             pickedIds={new Set(picked.filter((c) => c.kind === 'period').map((c) => c.id))}
             onPick={pickCard}
+            compact={compact}
           />
         </div>
       </div>

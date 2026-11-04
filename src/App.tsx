@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { HomeIndex } from './home/HomeIndex'
+import { PhonePortraitLock } from './components/PhonePortraitLock'
 import type { ToolId } from './home/tools'
 import { beginPage, clearWork, isRotateReload, readWork, restoringWork } from './lib/workSession'
 import { recordToolUse, recordVisit, readUsageStats, type UsageStats } from './lib/usageStats'
@@ -10,6 +11,15 @@ import { SnapSheetTool } from './tools/SnapSheetTool'
 import { BusTool } from './tools/BusTool'
 import { RoomTool } from './tools/RoomTool'
 import { SweepTool } from './tools/SweepTool'
+
+function withPhoneLock(node: ReactNode) {
+  return (
+    <>
+      <PhonePortraitLock />
+      {node}
+    </>
+  )
+}
 
 export default function App() {
   beginPage()
@@ -62,40 +72,40 @@ export default function App() {
   }
 
   if (!tool) {
-    return <HomeIndex onOpenTool={openTool} stats={stats} />
+    return withPhoneLock(<HomeIndex onOpenTool={openTool} stats={stats} />)
   }
 
   if (tool === 'plates') {
-    return <PlateNameTool family="desk" onHome={goHome} />
+    return withPhoneLock(<PlateNameTool family="desk" onHome={goHome} />)
   }
 
   if (tool === 'badges') {
-    return <PlateNameTool family="badge" onHome={goHome} />
+    return withPhoneLock(<PlateNameTool family="badge" onHome={goHome} />)
   }
 
   if (tool === 'seats') {
-    return <SeatingTool onHome={goHome} />
+    return withPhoneLock(<SeatingTool onHome={goHome} />)
   }
 
   if (tool === 'attendance') {
-    return <AttendanceTool onHome={goHome} />
+    return withPhoneLock(<AttendanceTool onHome={goHome} />)
   }
 
   if (tool === 'snap-sheet') {
-    return <SnapSheetTool onHome={goHome} />
+    return withPhoneLock(<SnapSheetTool onHome={goHome} />)
   }
 
   if (tool === 'sweep') {
-    return <SweepTool onHome={goHome} />
+    return withPhoneLock(<SweepTool onHome={goHome} />)
   }
 
   if (tool === 'bus') {
-    return <BusTool onHome={goHome} />
+    return withPhoneLock(<BusTool onHome={goHome} />)
   }
 
   if (tool === 'rooms') {
-    return <RoomTool onHome={goHome} />
+    return withPhoneLock(<RoomTool onHome={goHome} />)
   }
 
-  return <HomeIndex onOpenTool={openTool} stats={stats} />
+  return withPhoneLock(<HomeIndex onOpenTool={openTool} stats={stats} />)
 }

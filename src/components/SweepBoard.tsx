@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { BrandMark } from './BrandMark'
+import { PoolScroller } from './PoolScroller'
 import { captureSheet } from '../lib/captureSheet'
 import { savePdfFile } from '../lib/savePdf'
 import { studentCardLines, studentKey } from '../lib/seating'
@@ -520,11 +521,13 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
     endDrag()
   }
 
-  function onFolderDrop(folderId: string, e: DragEvent) {
+  function onFolderDrop(folderId: string, e: DragEvent, home: SweepFolderHome) {
     e.preventDefault()
     e.stopPropagation()
     const payload = readPayload(e)
-    if (payload?.kind === 'student') moveStudentToFolder(payload.value, folderId)
+    /* Dropping a task onto an existing duty module still adds a new module to the sweep area. */
+    if (payload?.kind === 'task' && home !== 'pool') addFolderToDuty(payload.value)
+    else if (payload?.kind === 'student') moveStudentToFolder(payload.value, folderId)
     endDrag()
   }
 
@@ -575,15 +578,27 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           e.preventDefault()
           e.stopPropagation()
           if (dragFolder) return
+          /* Task chips create a new module in the duty zone; do not treat the folder as a reject target. */
+          if (dragTask) {
+            if (home === 'pool') {
+              e.dataTransfer.dropEffect = 'none'
+              return
+            }
+            e.dataTransfer.dropEffect = 'copy'
+            setHotTarget(`zone:${dutyTab}`)
+            return
+          }
           e.dataTransfer.dropEffect = 'move'
           setHotTarget(`folder:${folder.id}`)
         }}
         onDragLeave={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setHotTarget((cur) => (cur === `folder:${folder.id}` ? null : cur))
+            setHotTarget((cur) =>
+              cur === `folder:${folder.id}` || cur === `zone:${dutyTab}` ? null : cur,
+            )
           }
         }}
-        onDrop={(e) => onFolderDrop(folder.id, e)}
+        onDrop={(e) => onFolderDrop(folder.id, e, home)}
       >
         <header className="sweep-folder-head">
           <input
@@ -745,9 +760,12 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
             </button>
           </div>
 
-          <div className="sweep-folder-board" role="tabpanel">
+          <PoolScroller
+            revision={dutyFolders.length + dutyFolders.reduce((n, f) => n + f.members.length, 0)}
+            bodyClassName="sweep-folder-board"
+          >
             {dutyFolders.map((folder) => renderFolder(folder, dutyTab))}
-          </div>
+          </PoolScroller>
         </section>
 
         <aside
@@ -790,7 +808,10 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
           </div>
 
           {poolTab === 'tasks' ? (
-            <div className="sweep-task-panel" role="tabpanel" aria-label="工作模塊">
+            <PoolScroller
+              revision={dutyTab === 'inner' ? 1 : placeTab === 'indoor' ? 2 : 3}
+              bodyClassName="sweep-task-panel"
+            >
               <div className="sweep-task-groups">
                 {dutyTab === 'inner' ? (
                   <>
@@ -900,9 +921,12 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                   </section>
                 )}
               </div>
-            </div>
+            </PoolScroller>
           ) : (
-            <div className="sweep-pool-panel" role="tabpanel">
+            <PoolScroller
+              revision={poolStudents.length + assignments.pool.length}
+              bodyClassName="sweep-pool-panel"
+            >
               {assignments.pool.length > 0 ? (
                 <div className="sweep-pool-folders">
                   {assignments.pool.map((folder) => renderFolder(folder, 'pool'))}
@@ -917,7 +941,7 @@ export function SweepBoard({ rows, mappings, assignments, onAssign, onBack, onHo
                   poolStudents.map((row) => renderStudentCard(studentKey(row)))
                 )}
               </div>
-            </div>
+            </PoolScroller>
           )}
         </aside>
       </div>

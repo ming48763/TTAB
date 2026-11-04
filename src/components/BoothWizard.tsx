@@ -11,6 +11,7 @@ import {
 } from '../lib/paper'
 import { BADGE_FIXED_STYLES, fixedBadgeLook } from '../lib/badgeLook'
 import { applyBadgeZones, applyBoothLayout, boothLayoutHasCornerExtra, boothLayoutPinsCorners, boothLayoutPresets, boothSlotAt, boothSlotCount, BOOTH_CORNER_CHOICES, defaultBadgeZoneOf, defaultBoothLayoutId, itemBoothLabel, resolveBoothLayoutId } from '../lib/boothLayouts'
+import { matchesPhoneScreen } from '../lib/screenLayout'
 import type { BadgeZoneId, BadgeZoneStyle } from '../lib/boothLayouts'
 import type { PrintImposition } from '../lib/printLayout'
 import type { BadgeLook, BadgeSizeId, LayoutSettings, LayoutItem, PageOrientation, PaperSizeId, StudentRow } from '../types'
@@ -25,6 +26,7 @@ import {
 } from '../types'
 import { PagesPreview } from './PagesPreview'
 import { PlateCard } from './PlateCard'
+import { PoolScroller } from './PoolScroller'
 import { PrintPreview } from './PrintPreview'
 import { StandPreview } from './StandPreview'
 
@@ -163,9 +165,8 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
     const choose = chooseRef.current
     if (!choose) return
     if (
-      !window.matchMedia(
-        '(max-width: 899px) and (orientation: portrait), (max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
-      ).matches
+      !window.matchMedia('(max-width: 899px) and (orientation: portrait)').matches &&
+      !matchesPhoneScreen()
     ) {
       return
     }
@@ -867,7 +868,11 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
       })
       return next
     })
-    if (itemId) releaseExtra(itemId)
+    if (itemId) {
+      releaseExtra(itemId)
+      /* Selecting content for a closed zone turns only that zone on. */
+      setBadgeZones((cur) => (cur[zone].on ? cur : { ...cur, [zone]: { ...cur[zone], on: true } }))
+    }
   }
 
   function clearExtra(index: 0 | 1) {
@@ -966,6 +971,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
         })
         return next
       })
+      setBadgeZones((cur) => (cur[zone].on ? cur : { ...cur, [zone]: { ...cur[zone], on: true } }))
     }
     onChange({ ...settings, items: [...settings.items, item] })
     setBadgeDraft(null)
@@ -975,6 +981,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
     <div className="booth-shell">
       <div className="booth-main">
         <section className="booth-choose" ref={chooseRef}>
+          <div className="booth-choose-scroll">
           <p className="booth-step-label">
             步驟 {stepIndex}／{stepTotal}
             {phase === 'paper'
@@ -993,7 +1000,12 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
                         ? ' · 額外元素'
                         : ' · 外框'}
           </p>
-          <div className="booth-choose-body">
+          <PoolScroller
+            when="tablet-landscape"
+            hideRailWhenFit
+            bodyClassName="booth-choose-body"
+            revision={stepIndex}
+          >
 
           {phase === 'paper' && (
             <>
@@ -1561,7 +1573,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
               )}
             </>
           )}
-          </div>
+          </PoolScroller>
 
           <div className="booth-actions">
             <button type="button" className="btn" onClick={phase === 'paper' ? onBack : goPrev}>
@@ -1576,6 +1588,7 @@ export function BoothWizard({ settings, sample, rows, title, onChange, onBack, i
                 預覽列印
               </button>
             )}
+          </div>
           </div>
         </section>
 

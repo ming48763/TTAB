@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { matchesPhoneScreen } from '../lib/screenLayout'
 import type {
   ColumnMapping,
   ExtraLabelOptions,
@@ -187,9 +188,7 @@ export function ConfirmFields({
   useLayoutEffect(() => {
     const grid = extraGridRef.current
     if (!grid) return
-    const phone = window.matchMedia(
-      '(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
-    )
+    const phoneMq = window.matchMedia('(max-width: 480px), (orientation: landscape)')
     const cards = () => [...grid.querySelectorAll<HTMLElement>(':scope > .extra-card')]
     const contentBox = (el: HTMLElement): number => {
       const style = getComputedStyle(el)
@@ -212,7 +211,7 @@ export function ConfirmFields({
         card.style.minHeight = ''
         card.style.maxHeight = ''
       }
-      if (!phone.matches) {
+      if (!matchesPhoneScreen()) {
         width = -1
         for (const card of list) clear(card)
         return
@@ -235,10 +234,10 @@ export function ConfirmFields({
     sync()
     const observer = new ResizeObserver(sync)
     observer.observe(grid)
-    phone.addEventListener('change', sync)
+    phoneMq.addEventListener('change', sync)
     return () => {
       observer.disconnect()
-      phone.removeEventListener('change', sync)
+      phoneMq.removeEventListener('change', sync)
       for (const card of cards()) {
         card.style.height = ''
         card.style.minHeight = ''
@@ -290,10 +289,7 @@ export function ConfirmFields({
     }
     const onWheel = (event: WheelEvent) => {
       if (bar.hidden && !usingRange()) return
-      const phone = window.matchMedia(
-        '(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))',
-      ).matches
-      if (phone && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return
+      if (matchesPhoneScreen() && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) return
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
       if (delta === 0) return
       if (usingRange()) {

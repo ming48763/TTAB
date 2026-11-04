@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { LayoutItem } from '../types'
 
 export const IMAGE_FRAME_CHOICES = [
@@ -10,12 +10,23 @@ export const IMAGE_FRAME_CHOICES = [
 
 export type ImageFrameId = (typeof IMAGE_FRAME_CHOICES)[number]['id']
 
-const FRAME = 220
-const PAD = 56
+const BASE_FRAME = 220
+const BASE_PAD = 56
+const BASE_STAGE = BASE_FRAME + BASE_PAD * 2
+/** Title + shape row + actions + card padding/gaps roughly. */
+const CHROME_H = 200
 
-function coverSize(natW: number, natH: number) {
-  const scale = Math.max(FRAME / natW, FRAME / natH)
+function coverSize(natW: number, natH: number, frame: number) {
+  const scale = Math.max(frame / natW, frame / natH)
   return { w: natW * scale, h: natH * scale }
+}
+
+function stageSizeForViewport() {
+  const avail = Math.max(140, window.innerHeight - CHROME_H)
+  const stage = Math.min(BASE_STAGE, Math.floor(avail))
+  const frame = Math.round(stage * (BASE_FRAME / BASE_STAGE))
+  const pad = Math.round((stage - frame) / 2)
+  return { frame: Math.max(100, frame), pad: Math.max(20, pad), stage: Math.max(140, frame + pad * 2) }
 }
 
 export function ImageFrameDialog({
@@ -30,6 +41,7 @@ export function ImageFrameDialog({
   const [shape, setShape] = useState<ImageFrameId>(item.imageFrame ?? 'circle')
   const [focus, setFocus] = useState({ x: item.imageFocusX ?? 50, y: item.imageFocusY ?? 50 })
   const [nat, setNat] = useState({ w: 1, h: 1 })
+  const [box, setBox] = useState(stageSizeForViewport)
   const drag = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null)
 
   useEffect(() => {
@@ -38,11 +50,24 @@ export function ImageFrameDialog({
     img.src = item.imageSrc ?? ''
   }, [item.imageSrc])
 
-  const photo = coverSize(nat.w, nat.h)
-  const extraX = Math.max(0, photo.w - FRAME)
-  const extraY = Math.max(0, photo.h - FRAME)
-  const left = PAD - extraX * (focus.x / 100)
-  const top = PAD - extraY * (focus.y / 100)
+  useEffect(() => {
+    const sync = () => setBox(stageSizeForViewport())
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [])
+
+  const photo = coverSize(nat.w, nat.h, box.frame)
+  const extraX = Math.max(0, photo.w - box.frame)
+  const extraY = Math.max(0, photo.h - box.frame)
+  const left = box.pad - extraX * (focus.x / 100)
+  const top = box.pad - extraY * (focus.y / 100)
+  const holeStyle = {
+    left: box.pad,
+    top: box.pad,
+    width: box.frame,
+    height: box.frame,
+  } satisfies CSSProperties
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.preventDefault()
@@ -99,6 +124,7 @@ export function ImageFrameDialog({
         </div>
         <div
           className="image-frame-stage"
+          style={{ width: box.stage, height: box.stage }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -107,7 +133,7 @@ export function ImageFrameDialog({
           <div className="image-frame-photo" style={{ width: photo.w, height: photo.h, left, top }}>
             <img src={item.imageSrc} alt="" draggable={false} />
           </div>
-          <div className={`image-frame-hole is-${shape}`} />
+          <div className={`image-frame-hole is-${shape}`} style={holeStyle} />
         </div>
         <div className="seat-notice-actions">
           <button type="button" className="btn" onClick={onCancel}>

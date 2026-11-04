@@ -318,7 +318,7 @@ export function SeatingPrintPreview({
               <span>匯出中…</span>
             </span>
           </button>
-          <button type="button" className="btn primary" onClick={() => window.print()}>
+          <button type="button" className="btn primary is-print" onClick={() => window.print()}>
             開始列印
           </button>
         </div>

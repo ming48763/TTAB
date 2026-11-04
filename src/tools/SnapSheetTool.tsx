@@ -240,7 +240,7 @@ export function SnapSheetTool({ onHome }: Props) {
 
   if (step === 'upload') {
     return (
-      <div className="app">
+      <div className="app step-upload is-flow">
         <header className="site-header no-print">
           <div className="brand">
             <BrandMark onHome={onHome} />

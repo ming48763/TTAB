@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { BusRolePicker } from './BusRolePicker'
 import { BrandMark } from './BrandMark'
+import { PoolScroller } from './PoolScroller'
 import { captureSheet } from '../lib/captureSheet'
 import { savePdfFile } from '../lib/savePdf'
 import { roomSlotColumns, type RoomUnit } from '../lib/roomPlan'
@@ -274,7 +275,7 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
           <div className="sweep-tabs">
             <div className="sweep-tab is-current">房間分配</div>
           </div>
-          <div className="sweep-folder-board">
+          <PoolScroller revision={rooms.length} bodyClassName="sweep-folder-board">
             {rooms.map((room) => (
               <article key={room.id} className="sweep-folder room-folder">
                 <header className="sweep-folder-head">
@@ -341,7 +342,7 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
                 </div>
               </article>
             ))}
-          </div>
+          </PoolScroller>
         </section>
         <aside
           className="sweep-zone is-pool"
@@ -360,7 +361,7 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
               <span className="sweep-tab-count">{pool.length + poolRoles.length}</span>
             </div>
           </div>
-          <div className="sweep-zone-list">
+          <PoolScroller revision={pool.length + poolRoles.length}>
             {pool.map((row) => {
               const key = studentKey(row)
               const lines = studentCardLines(row, mappings, shownFields)
@@ -402,7 +403,7 @@ export function RoomBoard({ rows, mappings, rooms, roles, onRooms, onRoles, onBa
             <button type="button" className="booth-drag-card seat-pool-card seat-pool-add" onClick={() => setRolePicker(true)}>
               +
             </button>
-          </div>
+          </PoolScroller>
         </aside>
       </div>
       {rolePicker && (

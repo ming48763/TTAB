@@ -9,9 +9,11 @@ import { BadgeLookMark } from './BadgeLookMark'
 import { ImageFrameDialog } from './ImageFrameDialog'
 import MiniColorPicker from './MiniColorPicker'
 
-function ItemMiniBar({ children }: { children: ReactNode }) {
+function ItemMiniBar({ children, paperZoom = 1 }: { children: ReactNode; paperZoom?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const [place, setPlace] = useState<{ y: 'above' | 'below'; x: number }>({ y: 'above', x: 0 })
+  /* Keep on-screen size = un-pinched size (tablet CSS still adds ×3). */
+  const invZoom = 1 / Math.max(paperZoom, 0.001)
 
   useLayoutEffect(() => {
     const bar = ref.current
@@ -31,23 +33,30 @@ function ItemMiniBar({ children }: { children: ReactNode }) {
       else if (aboveTop < stageBox.top && belowBottom > stageBox.bottom) {
         y = stageBox.bottom - itemBox.bottom > itemBox.top - stageBox.top ? 'below' : 'above'
       }
-      const scale = itemBox.width / Math.max(item.offsetWidth, 1)
+      /* Screen/local scale includes paper pinch-zoom and any bar zoom (e.g. tablet ×3). */
+      const barToScreen = barBox.width / Math.max(bar.offsetWidth, 1)
       const defaultLeft = itemBox.right - barBox.width
       let left = defaultLeft
       if (barBox.width <= stageBox.width) {
         if (left + barBox.width > stageBox.right) left = stageBox.right - barBox.width
         if (left < stageBox.left) left = stageBox.left
       }
-      const x = (left - defaultLeft) / scale
+      const x = barToScreen > 0 ? (left - defaultLeft) / barToScreen : 0
       const shown = bar.getBoundingClientRect()
       const roomAbove = shown.top - stageBox.top
       const roomBelow = stageBox.bottom - shown.bottom
+      /* Dropdown open thresholds scale with the bar’s on-screen size. */
+      const menuH = 240 * Math.max(barToScreen, 1)
+      const menuW = 280 * Math.max(barToScreen, 1)
       bar.querySelectorAll<HTMLElement>(':scope > .toolbar-drop').forEach((drop) => {
-        drop.classList.toggle('opens-down', roomAbove < 240 && roomBelow > roomAbove)
+        drop.classList.toggle('opens-down', roomAbove < menuH && roomBelow > roomAbove)
       })
       bar.querySelectorAll<HTMLElement>('.opens-right').forEach((drop) => {
         const box = drop.getBoundingClientRect()
-        drop.classList.toggle('opens-left', box.right + 280 > stageBox.right && box.left - 280 >= stageBox.left)
+        drop.classList.toggle(
+          'opens-left',
+          box.right + menuW > stageBox.right && box.left - menuW >= stageBox.left,
+        )
       })
       setPlace((prev) => (prev.y === y && Math.abs(prev.x - x) < 0.5 ? prev : { y, x }))
     }
@@ -60,7 +69,7 @@ function ItemMiniBar({ children }: { children: ReactNode }) {
       window.removeEventListener('pointermove', update)
       window.removeEventListener('scroll', update, true)
     }
-  }, [])
+  }, [paperZoom])
 
   return (
     <div
@@ -70,7 +79,11 @@ function ItemMiniBar({ children }: { children: ReactNode }) {
         fontSize: 14,
         lineHeight: 1.2,
         fontWeight: 500,
-        transform: place.y === 'below' ? `translate(${place.x}px, 10px)` : `translate(${place.x}px, calc(-100% - 10px))`,
+        transformOrigin: place.y === 'below' ? 'right top' : 'right bottom',
+        transform:
+          place.y === 'below'
+            ? `translate(${place.x}px, 10px) scale(${invZoom})`
+            : `translate(${place.x}px, calc(-100% - 10px)) scale(${invZoom})`,
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
@@ -166,6 +179,8 @@ interface FaceProps {
   onClearSelection?: () => void
   highlightIds?: string[]
   hotGhost?: { x: number; y: number } | null
+  /** Pinch zoom only; mini-bar counter-scales so on-screen size stays fixed. */
+  paperZoom?: number
 }
 
 export function PlateFace({
@@ -189,6 +204,7 @@ export function PlateFace({
   onClearSelection,
   highlightIds = [],
   hotGhost = null,
+  paperZoom = 1,
 }: FaceProps) {
   const selectedSet = new Set(selectedIds)
   const highlightSet = new Set(highlightIds)
@@ -324,7 +340,7 @@ export function PlateFace({
               <span key={alignFlash.tick} className={`align-flash is-${alignFlash.side}`} aria-hidden="true" />
             ) : null}
             {interactive && !fresh && selectedIds.length >= 2 && selectedIds[selectedIds.length - 1] === item.id && (
-              <ItemMiniBar>
+              <ItemMiniBar paperZoom={paperZoom}>
                 <div className="toolbar-drop">
                   <button type="button" className="item-mini-btn">
                     對齊
@@ -388,7 +404,7 @@ export function PlateFace({
             )}
             {selected && selectedIds.length === 1 && interactive && !fresh && (
               <>
-                <ItemMiniBar>
+                <ItemMiniBar paperZoom={paperZoom}>
                   <button
                     type="button"
                     className="item-mini-btn is-danger"
@@ -671,9 +687,18 @@ interface CardProps {
   editor?: PlateEditorHandlers
   highlightIds?: string[]
   hotGhost?: { x: number; y: number } | null
+  paperZoom?: number
 }
 
-export function PlateCard({ settings, student, showGuides = false, editor, highlightIds, hotGhost }: CardProps) {
+export function PlateCard({
+  settings,
+  student,
+  showGuides = false,
+  editor,
+  highlightIds,
+  hotGhost,
+  paperZoom = 1,
+}: CardProps) {
   const isDesk = settings.mode === 'desk'
   const isDouble = settings.mode === 'badge-double'
   const totalHeightMm = totalCardHeightMm(settings.mode, settings.faceHeightMm)
@@ -815,6 +840,7 @@ export function PlateCard({ settings, student, showGuides = false, editor, highl
       onClearSelection={editor?.onClearSelection}
       highlightIds={highlightIds}
       hotGhost={hotGhost}
+      paperZoom={paperZoom}
     />
   )
 

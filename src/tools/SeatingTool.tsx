@@ -72,7 +72,7 @@ export function SeatingTool({ onHome }: Props) {
   const showChrome = step === 'upload' || step === 'map'
 
   return (
-    <div className={`app step-${step === 'assign' || step === 'setup' ? 'seat' : step}`}>
+    <div className={`app is-flow is-master step-${step === 'assign' || step === 'setup' ? 'seat' : step}`}>
       {showChrome && (
         <header className="site-header no-print">
           <div className="brand">

@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { PHONE_SCREEN, TABLET_LANDSCAPE, TABLET_SCREEN } from '../lib/screenLayout'
+import { detectDeviceKind, matchesPhoneScreen, TABLET_LANDSCAPE } from '../lib/screenLayout'
 import { PlateFace } from './PlateCard'
 import type { LayoutSettings, StudentRow } from '../types'
-
-const HALF_STAND = `${PHONE_SCREEN}, ${TABLET_LANDSCAPE}`
 
 const MM_PX = 3.7795275591
 
@@ -48,13 +46,19 @@ function MiniFace({
 
 export function StandPreview({ settings, student, movable = true, highlightIds, hotGhost }: Props) {
   const isDesk = settings.mode === 'desk'
-  const [compact, setCompact] = useState(() => window.matchMedia(HALF_STAND).matches)
+  const [compact, setCompact] = useState(
+    () => matchesPhoneScreen() || window.matchMedia(TABLET_LANDSCAPE).matches,
+  )
   useEffect(() => {
-    const mq = window.matchMedia(HALF_STAND)
-    const apply = () => setCompact(mq.matches)
+    const tablet = window.matchMedia(TABLET_LANDSCAPE)
+    const apply = () => setCompact(matchesPhoneScreen() || tablet.matches)
     apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
+    tablet.addEventListener('change', apply)
+    window.addEventListener('resize', apply)
+    return () => {
+      tablet.removeEventListener('change', apply)
+      window.removeEventListener('resize', apply)
+    }
   }, [])
   const faceW = (isDesk ? 168 : 176) * (compact ? 0.5 : 1)
   const aspect = settings.faceHeightMm / Math.max(settings.widthMm, 1)
@@ -89,7 +93,7 @@ export function StandPreview({ settings, student, movable = true, highlightIds, 
       const toolbar = document.querySelector('.editor-toolbar')
       const toolBottom = toolbar?.getBoundingClientRect().bottom ?? 0
       const minTop = Math.max(rect.top + 10, toolBottom + 10)
-      const onTablet = window.matchMedia(TABLET_SCREEN).matches
+      const onTablet = detectDeviceKind() === '平板端'
       const left = onTablet ? rect.left + 14 : rect.right - el.offsetWidth - 14
       const top = Math.min(rect.bottom - el.offsetHeight - 8, minTop)
       setFollow({ left, top })

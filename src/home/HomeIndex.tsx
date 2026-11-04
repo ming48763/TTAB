@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
+import { matchesPhoneScreen } from '../lib/screenLayout'
 import { formatCount, type UsageStats } from '../lib/usageStats'
 import { HOME_TOOLS, type ToolId } from './tools'
 import { ToolTile } from './ToolTile'
@@ -29,8 +30,7 @@ export function HomeIndex({ onOpenTool, stats }: Props) {
   useEffect(() => {
     const header = headerRef.current
     if (!header) return
-    const compact = window.matchMedia('(max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9))')
-    if (compact.matches) return
+    if (matchesPhoneScreen()) return
     let frame = 0
     const fadeDistance = 96
     const update = () => {

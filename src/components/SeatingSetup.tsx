@@ -1,4 +1,5 @@
 import { BrandMark } from './BrandMark'
+import { PoolScroller } from './PoolScroller'
 import { StepRail } from './StepRail'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SeatUnitPreview, SeatingClassroom } from './SeatingClassroom'
@@ -253,6 +254,12 @@ export function SeatingSetup({
       </header>
       <div className="booth-main">
         <section className={`booth-choose${fittingTiles ? ' is-mode' : ''}${phase === 'grid' ? ' is-grid' : ''}`}>
+          <PoolScroller
+            when="tablet-landscape"
+            hideRailWhenFit
+            bodyClassName="booth-choose-scroll"
+            revision={stepIndex}
+          >
           <p className="booth-step-label">
             步驟 {stepIndex}／4
             {phase === 'mode'
@@ -393,6 +400,7 @@ export function SeatingSetup({
               {phase === 'doors' ? '開始排座位' : '下一步'}
             </button>
           </div>
+          </PoolScroller>
         </section>
 
         <aside className="booth-preview">

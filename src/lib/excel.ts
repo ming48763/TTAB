@@ -36,6 +36,10 @@ const SENSITIVE_COLUMNS: { label: string; patterns: RegExp[] }[] = [
     label: '出生年月日',
     patterns: [/出生/, /生日/, /birth/i, /\bdob\b/i],
   },
+  {
+    label: '地址',
+    patterns: [/地址/, /住址/, /通訊處/, /address/i],
+  },
 ]
 
 function cellText(cell: string | number | boolean | null | undefined) {

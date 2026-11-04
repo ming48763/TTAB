@@ -62,7 +62,11 @@ export function RoomTool({ onHome }: Props) {
   const showChrome = step === 'upload' || step === 'rooms'
 
   return (
-    <div className={`app step-${step === 'assign' ? 'seat' : step === 'rooms' ? 'map' : step}`}>
+    <div
+      className={`app is-master step-${step === 'assign' ? 'seat' : step === 'rooms' ? 'map' : step}${
+        step === 'upload' ? ' is-flow' : ''
+      }`}
+    >
       {showChrome && (
         <header className="site-header no-print">
           <div className="brand">

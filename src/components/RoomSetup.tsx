@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PoolScroller } from './PoolScroller'
 
 export interface RoomSpecDraft {
   id: string
@@ -49,7 +50,12 @@ export function RoomSetup({ drafts, studentCount, onChange, onBack, onConfirm }:
 
   return (
     <div className="step-page">
-      <div className="panel room-setup">
+      <PoolScroller
+        when="tablet-landscape"
+        hideRailWhenFit
+        bodyClassName="panel room-setup"
+        revision={drafts.filter((d) => d.enabled).length}
+      >
         <p className="muted room-setup-summary">
           <span>
             {formula ? `${formula} ＝ ` : ''}
@@ -111,7 +117,7 @@ export function RoomSetup({ drafts, studentCount, onChange, onBack, onConfirm }:
             確認，開始排房間
           </button>
         </div>
-      </div>
+      </PoolScroller>
       {notice && (
         <div className="seat-notice" role="alertdialog" aria-modal="true" aria-labelledby="room-notice-title">
           <div className="seat-notice-card">

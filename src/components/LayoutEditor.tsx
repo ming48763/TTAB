@@ -27,6 +27,7 @@ import {
   applyOrientation,
   BADGE_IDS,
   BADGE_PRESETS,
+  deskEditFocusOffsetY,
   groupItems,
   PAPER_PRESETS,
   paperDimensions,
@@ -569,13 +570,22 @@ export function LayoutEditor({
   const imageInputRef = useRef<HTMLInputElement>(null)
   const paperRef = useRef<HTMLDivElement>(null)
   const panDrag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const pinchRef = useRef<{ dist: number; scale: number } | null>(null)
   const [fitScreen, setFitScreen] = useState(false)
   const [panning, setPanning] = useState(false)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [fit, setFit] = useState({ scale: 1, w: 0, h: 0 })
+  const [userScale, setUserScale] = useState(1)
   const fitMode = fitScreen && (settings.mode === 'desk' || isBadge)
   const fitRef = useRef(fit)
+  const userScaleRef = useRef(userScale)
   fitRef.current = fit
+  userScaleRef.current = userScale
+  const viewScale = fit.scale * userScale
+  const viewW = Math.round(fit.w * userScale)
+  const viewH = Math.round(fit.h * userScale)
+  /** Desk: pan home centers the bottom edit-face mid, not the paper mid. */
+  const focusY = fitMode ? deskEditFocusOffsetY(viewH, settings.mode) : 0
 
   useEffect(() => {
     const mq = window.matchMedia(EDITOR_FIT_SCREEN)
@@ -612,7 +622,14 @@ export function LayoutEditor({
 
   useEffect(() => {
     setPan({ x: 0, y: 0 })
+    setUserScale(1)
+    pinchRef.current = null
   }, [guide.widthMm, guide.heightMm, fitMode])
+
+  useEffect(() => {
+    if (!fitMode || fit.w <= 0) return
+    setPan((cur) => clampPan(cur.x, cur.y, userScale))
+  }, [fit.w, fit.h, userScale, fitMode])
 
   useLayoutEffect(() => {
     if (!fitMode) return
@@ -648,17 +665,88 @@ export function LayoutEditor({
     }
   }, [fitMode, guide.widthMm, guide.heightMm, settings.widthMm, settings.faceHeightMm, settings.orientation])
 
-  function clampPan(x: number, y: number) {
+  /** Same inset as fit measure — pan limits must track the zoomed paper size. */
+  function stageContentSize(stage: HTMLElement) {
+    const styles = getComputedStyle(stage)
+    const padX = (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0)
+    const padY = (Number.parseFloat(styles.paddingTop) || 0) + (Number.parseFloat(styles.paddingBottom) || 0)
+    return {
+      w: Math.max(40, stage.clientWidth - padX),
+      h: Math.max(40, stage.clientHeight - padY),
+    }
+  }
+
+  function clampPan(x: number, y: number, scale = userScaleRef.current) {
     const stage = stageRef.current
     const box = fitRef.current
     if (!stage || box.w <= 0) return { x, y }
-    const maxX = Math.max(24, (stage.clientWidth - box.w) / 2)
-    const maxY = Math.max(24, (stage.clientHeight - box.h) / 2)
+    const { w: stageW, h: stageH } = stageContentSize(stage)
+    /* Zoomed paper size (fit.w already includes fit-to-screen scale). */
+    const paperW = box.w * scale
+    const paperH = box.h * scale
+    const overflowX = paperW - stageW
+    const overflowY = paperH - stageH
+    /* Edge slack scales with the shorter stage side (≈3% at 1×, grows with zoom). */
+    const edge = Math.max(8, Math.min(stageW, stageH) * 0.03 * scale)
+    const maxX = overflowX > 0 ? overflowX / 2 + edge : Math.max(edge, (stageW - paperW) / 2)
+    let maxY = overflowY > 0 ? overflowY / 2 + edge : Math.max(edge, (stageH - paperH) / 2)
+    /* Desk home shifts paper up; add that offset so both edges stay reachable. */
+    maxY += Math.abs(deskEditFocusOffsetY(paperH, settings.mode))
     return {
       x: Math.min(maxX, Math.max(-maxX, x)),
       y: Math.min(maxY, Math.max(-maxY, y)),
     }
   }
+
+  useEffect(() => {
+    if (!fitMode) return
+    const stage = stageRef.current
+    if (!stage) return
+
+    function touchDistance(touches: TouchList) {
+      const a = touches[0]
+      const b = touches[1]
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+    }
+
+    function onTouchStart(event: TouchEvent) {
+      if (event.touches.length !== 2) return
+      panDrag.current = null
+      setPanning(false)
+      pinchRef.current = {
+        dist: Math.max(24, touchDistance(event.touches)),
+        scale: userScaleRef.current,
+      }
+    }
+
+    function onTouchMove(event: TouchEvent) {
+      const pinch = pinchRef.current
+      if (!pinch || event.touches.length !== 2) return
+      event.preventDefault()
+      const next = Math.min(
+        3,
+        Math.max(1, pinch.scale * (touchDistance(event.touches) / pinch.dist)),
+      )
+      userScaleRef.current = next
+      setUserScale(next)
+      setPan((cur) => clampPan(cur.x, cur.y, next))
+    }
+
+    function onTouchEnd(event: TouchEvent) {
+      if (event.touches.length < 2) pinchRef.current = null
+    }
+
+    stage.addEventListener('touchstart', onTouchStart, { passive: true })
+    stage.addEventListener('touchmove', onTouchMove, { passive: false })
+    stage.addEventListener('touchend', onTouchEnd)
+    stage.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      stage.removeEventListener('touchstart', onTouchStart)
+      stage.removeEventListener('touchmove', onTouchMove)
+      stage.removeEventListener('touchend', onTouchEnd)
+      stage.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [fitMode])
 
   useEffect(() => {
     if (selectedIds.length === 0) return
@@ -680,7 +768,9 @@ export function LayoutEditor({
   }, [selectedIds.length])
 
   function onStagePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (!fitMode || e.button !== 0 || isCompactScreen()) return
+    if (!fitMode || (e.pointerType === 'mouse' && e.button !== 0)) return
+    /* Empty-stage pan: mouse, pen, and single-finger touch (incl. tablet landscape). */
+    if (pinchRef.current) return
     const el = e.target as HTMLElement
     if (
       el.closest(
@@ -707,7 +797,9 @@ export function LayoutEditor({
   }
 
   return (
-    <div className="editor-shell">
+    <div
+      className={`editor-shell${isBadge ? ` is-badge is-badge-${badgeSize}` : ' is-plate'}`}
+    >
       <header ref={toolbarRef} className="editor-toolbar no-print">
         <div className="toolbar-row">
         <div className="toolbar-brand">
@@ -1072,9 +1164,9 @@ export function LayoutEditor({
             style={
               fitMode
                 ? {
-                    width: fit.w || undefined,
-                    height: fit.h || undefined,
-                    transform: `translate(${pan.x}px, ${pan.y}px)`,
+                    width: viewW || undefined,
+                    height: viewH || undefined,
+                    transform: `translate(${pan.x}px, ${pan.y + focusY}px)`,
                   }
                 : undefined
             }
@@ -1085,7 +1177,7 @@ export function LayoutEditor({
               style={{
                 width: `${guide.widthMm}mm`,
                 height: `${guide.heightMm}mm`,
-                transform: fitMode ? `scale(${fit.scale})` : undefined,
+                transform: fitMode ? `scale(${viewScale})` : undefined,
                 transformOrigin: fitMode ? 'top left' : undefined,
               }}
               onPointerDown={(e) => {
@@ -1103,7 +1195,13 @@ export function LayoutEditor({
                   </span>
                 </div>
               <div className={`paper-card-slot${settings.mode === 'desk' ? ' is-fill' : ''}`}>
-                <PlateCard settings={settings} student={sample} showGuides editor={editor} />
+                <PlateCard
+                  settings={settings}
+                  student={sample}
+                  showGuides
+                  editor={editor}
+                  paperZoom={fitMode ? userScale : 1}
+                />
               </div>
             </div>
           </div>

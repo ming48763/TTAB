@@ -112,14 +112,19 @@ button.brand-mark:focus-visible {
   background: transparent;
 }
 
+/* 與工具頁 .app + .site-header 同寬同邊距，LOGO 對齊桌牌神器。 */
 .home-header {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
   z-index: 30;
-  align-items: center;
-  margin: 0;
-  padding: 20px 24px 16px;
+  box-sizing: border-box;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 20px 16px;
   background: transparent;
 }
 
@@ -130,7 +135,7 @@ button.brand-mark:focus-visible {
 
 .app.step-home .site-main {
   width: 100%;
-  padding: 118px 28px 76px;
+  padding: 126px 20px 76px;
 }
 
 .home-stats {
@@ -311,6 +316,10 @@ button.brand-mark:focus-visible {
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+}
+
+.booth-choose-scroll {
+  display: contents;
 }
 
 .app.step-booth .booth-choose-body {
@@ -784,6 +793,8 @@ button.brand-mark:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .booth-size input[type='range'] {
@@ -796,18 +807,25 @@ button.brand-mark:focus-visible {
   cursor: pointer;
 }
 
-.booth-size span {
+.booth-size > span:not(.booth-range) {
   flex: none;
   min-width: 4.5ch;
   font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.booth-size > span:first-of-type {
+  text-align: left;
+}
+
+.booth-size > span:last-of-type {
   text-align: right;
 }
 
 .booth-range {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   min-width: 0;
@@ -821,14 +839,20 @@ button.brand-mark:focus-visible {
   position: absolute;
   left: 50%;
   top: 50%;
+  box-sizing: border-box;
   width: 10px;
   height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  aspect-ratio: 1;
   border: 2px solid #fff;
   border-radius: 50%;
   background: var(--accent);
-  transform: translate(-50%, -50%);
+  margin: -5px 0 0 -5px;
+  transform: none;
   pointer-events: none;
   z-index: 1;
+  flex: none;
 }
 
 .booth-actions {
@@ -881,7 +905,7 @@ button.brand-mark:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .booth-main {
     grid-template-columns: 1fr;
   }
@@ -1455,7 +1479,7 @@ button.brand-mark:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .extra-grid {
     grid-template-columns: 1fr;
   }
@@ -3670,7 +3694,7 @@ button.brand-mark:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .toolbar-group {
     border-left: none;
     padding-left: 0;
@@ -4619,6 +4643,30 @@ button.brand-mark:focus-visible {
   padding: 8px;
   border-radius: 14px;
   border: 1.5px dashed var(--line);
+  scrollbar-width: auto;
+  scrollbar-color: var(--accent) color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.seat-pool-list::-webkit-scrollbar {
+  height: 14px;
+  width: 14px;
+}
+
+.seat-pool-list::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 999px;
+}
+
+.seat-pool-list::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.seat-pool-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-deep);
+  background-clip: padding-box;
 }
 
 .seat-pool-list > .muted {
@@ -4819,9 +4867,14 @@ button.seat-pool-add:active {
   justify-self: end;
 }
 
-@media (max-width: 860px) {
+/* 窄螢幕改上下堆疊：只在直向／手機橫向。平板橫向維持左右欄，避免卡片區跑版。 */
+@media (max-width: 860px) and (orientation: portrait),
+  (max-width: 480px),
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .seat-assign-body {
     grid-template-columns: 1fr;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .seat-pool {
@@ -4831,11 +4884,6 @@ button.seat-pool-add:active {
 
   .seat-mode-grid.is-three {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  }
-
-  .seat-assign-body {
-    min-height: 0;
-    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .seat-assign-map,
@@ -4937,8 +4985,11 @@ button.seat-pool-add:active {
 }
 
 .seat-setup .booth-choose.is-mode > .booth-step-label,
+.seat-setup .booth-choose-scroll > .booth-step-label,
 .seat-setup .booth-choose.is-mode > h2,
-.seat-setup .booth-choose.is-mode > .booth-actions {
+.seat-setup .booth-choose-scroll > h2,
+.seat-setup .booth-choose.is-mode > .booth-actions,
+.seat-setup .booth-choose-scroll > .booth-actions {
   flex: none;
 }
 
@@ -4983,7 +5034,7 @@ button.seat-pool-add:active {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .seat-setup .booth-main {
     grid-template-columns: minmax(0, 46%) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
@@ -5127,6 +5178,25 @@ button.seat-pool-add:active {
   font-weight: inherit;
   line-height: inherit;
   color: inherit;
+}
+
+/* 平板端排座位預覽：隱藏列印，PDF 佔主按鈕位置（綠底白字）。 */
+@media (max-width: 899px) {
+  html.is-ua-tablet .seat-print-actions .is-print {
+    display: none;
+  }
+
+  html.is-ua-tablet .seat-print-actions .is-pdf,
+  html.is-ua-tablet .seat-print-actions .is-pdf:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #f4fff9;
+  }
+
+  html.is-ua-tablet .seat-print-actions .is-pdf:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
 }
 
 .seat-print-stage {
@@ -5770,17 +5840,71 @@ button.att-card.is-to:active {
   flex: 0 0 46px;
 }
 
-button.att-card {
+button.att-card,
+.att-card.booth-drag-card {
   font: inherit;
 }
 
-button.att-card:active {
+/* Keep att look when phone/tablet also use .booth-drag-card for touch-drag parity. */
+.att-card.booth-drag-card,
+.att-brick.booth-drag-card,
+.att-pack.booth-drag-card {
+  flex: none;
+  box-sizing: border-box;
+}
+
+.att-card.booth-drag-card {
+  width: auto;
+  min-height: 0;
+  height: auto;
+}
+
+.att-brick.booth-drag-card {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  padding: 4px;
+  font-size: inherit;
+  font-weight: inherit;
+  border-radius: 0;
+}
+
+.att-brick.is-handle.booth-drag-card {
+  width: 28px;
+  min-width: 28px;
+}
+
+.att-pack.booth-drag-card {
+  width: 100%;
+  min-height: 0;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: grab;
+}
+
+.att-pack.booth-drag-card:active,
+.att-brick.booth-drag-card:active {
+  cursor: grabbing;
+}
+
+button.att-card:active,
+.att-card.booth-drag-card:active {
   cursor: grabbing;
 }
 
 button.att-card:hover,
-button.att-card:focus-visible {
+button.att-card:focus-visible,
+.att-card.booth-drag-card:hover,
+.att-card.booth-drag-card:focus-visible {
   transform: translateY(-2px);
+}
+
+.att-card.is-period.is-to.booth-drag-card:active {
+  cursor: pointer;
 }
 
 .att-script,
@@ -6612,7 +6736,7 @@ button.att-card:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .snap-upload-grid {
     grid-template-columns: 1fr;
   }
@@ -7105,6 +7229,8 @@ button.att-card:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   align-content: start;
+  align-items: start;
+  grid-auto-rows: minmax(max-content, auto);
   gap: 10px;
   padding: 12px;
   min-height: 0;
@@ -7147,6 +7273,8 @@ button.att-card:focus-visible {
 .sweep-folder {
   display: flex;
   flex-direction: column;
+  height: auto;
+  align-self: start;
   min-height: 140px;
   border: 1.5px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: 14px;
@@ -7266,11 +7394,23 @@ button.att-card:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   align-content: start;
+  align-items: start;
+  grid-auto-rows: auto;
   gap: 6px;
-  flex: 1;
+  flex: none;
+  height: auto;
   min-height: 72px;
   padding: 8px;
   background: color-mix(in srgb, var(--paper) 30%, white);
+}
+
+.sweep-folder-body > .seat-pool-card,
+.sweep-folder-body > .booth-drag-card {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  align-self: start;
 }
 
 .sweep-folder-body > .muted {
@@ -7282,7 +7422,7 @@ button.att-card:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .sweep-body {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -7298,7 +7438,7 @@ button.att-card:focus-visible {
 /* 直向的手機與平板，以及手機橫向。平板橫向改走網頁端橫向版面。 */
 @media (max-width: 900px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .app:not(.step-home):not(.step-edit):not(.step-booth):not(.step-seat):not(.step-att):not(.step-snap) {
     padding: 20px 16px 48px;
   }
@@ -7308,7 +7448,7 @@ button.att-card:focus-visible {
   }
 
   .home-header {
-    padding: 16px 16px 12px;
+    padding: 20px 16px 12px;
   }
 
   .brand {
@@ -7414,7 +7554,7 @@ button.att-card:focus-visible {
 
   .app.step-home .home-header {
     position: static;
-    padding: 16px 16px 0;
+    padding: 16px 12px 0;
   }
 
   .app.step-home .site-main {
@@ -7582,6 +7722,71 @@ button.att-card:focus-visible {
     max-height: 60vh;
   }
 
+  /* 平板直向：預覽用可視高度的一半，避免 50vh 在網址列出現時把按鈕裁到畫面外。 */
+  html.is-ua-tablet .seat-setup .booth-main,
+  html.is-ua-tablet .seat-setup .booth-main:has(.booth-choose.is-grid) {
+    grid-template-rows: 50dvh minmax(0, 1fr);
+  }
+
+  html.is-ua-tablet .seat-setup .booth-preview,
+  html.is-ua-tablet .seat-setup .booth-main:has(.booth-choose.is-grid) .booth-preview {
+    box-sizing: border-box;
+    height: 50dvh;
+    max-height: 50dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .seat-setup .seat-preview-stage,
+  html.is-ua-tablet .seat-setup .booth-main:has(.booth-choose.is-grid) .seat-preview-stage {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  html.is-ua-tablet .seat-setup,
+  html.is-ua-tablet .app.step-seat:has(.seat-setup) {
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* 空間夠時按鈕靠左下；放不下時只捲選擇區，並能捲過除錯列看到按鈕。 */
+  html.is-ua-tablet .seat-setup .booth-choose,
+  html.is-ua-tablet .seat-setup .booth-choose.is-mode {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  html.is-ua-tablet .seat-setup .booth-choose-scroll {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 100%;
+    gap: 8px;
+    padding: 8px 14px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  html.is-ua-tablet .seat-setup .booth-choose-scroll > .booth-actions {
+    margin-top: auto;
+    justify-content: flex-start;
+  }
+
+  html.is-ua-tablet .seat-setup .booth-choose.is-mode .seat-mode-fit {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
   .seat-setup .booth-preview {
     gap: 4px;
     padding: 8px 12px 6px;
@@ -7617,20 +7822,27 @@ button.att-card:focus-visible {
     max-height: 100%;
   }
 
-  .seat-setup .booth-choose.is-mode > .booth-actions {
+  .seat-setup .booth-choose.is-mode > .booth-actions,
+  .seat-setup .booth-choose-scroll > .booth-actions {
     margin-top: 0;
     padding-top: 0;
   }
 
   .seat-setup .booth-choose > .booth-step-label,
+  .seat-setup .booth-choose-scroll > .booth-step-label,
   .seat-setup .booth-choose > h2,
-  .seat-setup .booth-choose > .booth-actions {
+  .seat-setup .booth-choose-scroll > h2,
+  .seat-setup .booth-choose > .booth-actions,
+  .seat-setup .booth-choose-scroll > .booth-actions {
     flex: none;
   }
 
   .seat-setup .booth-choose > .seat-mode-grid,
+  .seat-setup .booth-choose-scroll > .seat-mode-grid,
   .seat-setup .booth-choose > .seat-door-table-wrap,
-  .seat-setup .booth-choose > p.muted {
+  .seat-setup .booth-choose-scroll > .seat-door-table-wrap,
+  .seat-setup .booth-choose > p.muted,
+  .seat-setup .booth-choose-scroll > p.muted {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -7640,7 +7852,8 @@ button.att-card:focus-visible {
     gap: 8px;
   }
 
-  .seat-setup .booth-choose.is-grid > h2 {
+  .seat-setup .booth-choose.is-grid > h2,
+  .seat-setup .booth-choose-scroll > h2 {
     margin-top: 0;
   }
 
@@ -7744,7 +7957,7 @@ button.att-card:focus-visible {
     }
   }
 
-  .app.is-desk.step-map,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map),
   .app.is-desk.step-choose {
     box-sizing: border-box;
     height: 100dvh;
@@ -7755,21 +7968,21 @@ button.att-card:focus-visible {
     padding: 16px 14px 12px;
   }
 
-  .app.is-desk.step-map .site-header,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .site-header,
   .app.is-desk.step-choose .site-header {
     flex: none;
     margin-bottom: 10px;
   }
 
-  .app.is-desk.step-map .site-main,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .site-main,
   .app.is-desk.step-choose .site-main {
     flex: 1;
     min-height: 0;
     overflow: hidden;
   }
 
-  .app.is-desk.step-map .step-page,
-  .app.is-desk.step-map .confirm-panel {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .step-page,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-panel {
     height: 100%;
     min-height: 0;
     display: flex;
@@ -7777,33 +7990,33 @@ button.att-card:focus-visible {
     overflow: hidden;
   }
 
-  .app.is-desk.step-map .confirm-panel {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-panel {
     padding: 14px;
   }
 
-  .app.is-desk.step-map .panel-head {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .panel-head {
     flex: none;
     margin-bottom: 8px;
   }
 
-  .app.is-desk.step-map .confirm-section:first-of-type {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:first-of-type {
     flex: 1 1 32%;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .app.is-desk.step-map .confirm-section:first-of-type .section-head {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:first-of-type .section-head {
     flex: none;
   }
 
-  .app.is-desk.step-map .table-wrap {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .table-wrap {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
   }
 
-  .app.is-desk.step-map .confirm-section:nth-of-type(2) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:nth-of-type(2) {
     flex: 1 1 48%;
     min-height: 0;
     display: flex;
@@ -7818,36 +8031,36 @@ button.att-card:focus-visible {
     min-height: 0;
   }
 
-  .app.is-desk.step-map .extra-grid {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-grid {
     flex: 1 1 auto;
   }
 
-  .app.is-desk.step-map .extra-card {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card {
     min-height: 0;
     height: 100%;
   }
 
-  .app.is-desk.step-map .extra-card-head {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-head {
     gap: 6px;
     padding: 8px;
   }
 
-  .app.is-desk.step-map .extra-card-head strong {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-head strong {
     font-size: 0.95rem;
   }
 
-  .app.is-desk.step-map .extra-card-head em,
-  .app.is-desk.step-map .seq-option em,
-  .app.is-desk.step-map .extra-placeholder {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-head em,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .seq-option em,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-placeholder {
     font-size: 0.78rem;
   }
 
-  .app.is-desk.step-map .extra-card-body {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body {
     padding: 8px;
     gap: 6px;
   }
 
-  .app.is-desk.step-map .confirm-footer {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-footer {
     flex: none;
     margin-top: 10px;
     padding-top: 10px;
@@ -7884,6 +8097,8 @@ button.att-card:focus-visible {
   .app.is-desk.step-booth {
     display: flex;
     flex-direction: column;
+    /* min-height:100vh 會蓋過 max-height，網址列出現時把按鈕裁到畫面外。 */
+    min-height: 0;
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
@@ -8723,12 +8938,88 @@ button.att-card:focus-visible {
   overflow: hidden;
 }
 
-.room-board .sweep-zone.is-pool .sweep-zone-list {
+/* Custom always-visible rail: 5px visual, 10px hit area — native overlay bars hide after scroll. */
+.pool-scroller {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.pool-scroller > .sweep-zone-list,
+.pool-scroller > .sweep-pool-panel,
+.pool-scroller > .sweep-task-panel,
+.pool-scroller > .sweep-folder-board,
+.pool-scroller > .booth-choose-body,
+.pool-scroller > .booth-choose-scroll,
+.pool-scroller > .edit-mode-pick,
+.pool-scroller > .panel.room-setup {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pool-scroller.is-fit {
+  gap: 0;
+}
+
+.pool-scroller > .sweep-zone-list {
   align-content: start;
   grid-auto-rows: minmax(max-content, auto);
+}
+
+.pool-scroller > .sweep-folder-board {
+  scrollbar-gutter: auto;
+}
+
+.pool-scroller > .sweep-zone-list::-webkit-scrollbar,
+.pool-scroller > .sweep-pool-panel::-webkit-scrollbar,
+.pool-scroller > .sweep-task-panel::-webkit-scrollbar,
+.pool-scroller > .sweep-folder-board::-webkit-scrollbar,
+.pool-scroller > .booth-choose-body::-webkit-scrollbar,
+.pool-scroller > .booth-choose-scroll::-webkit-scrollbar,
+.pool-scroller > .edit-mode-pick::-webkit-scrollbar,
+.pool-scroller > .panel.room-setup::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.pool-scroll-rail {
+  flex: 0 0 10px;
+  width: 10px;
+  position: relative;
+  touch-action: none;
+  cursor: pointer;
+  background: transparent;
+  align-self: stretch;
+}
+
+.pool-scroll-rail::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 2.5px;
+  right: 2.5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+}
+
+.pool-scroll-thumb {
+  position: absolute;
+  left: 2.5px;
+  right: 2.5px;
+  top: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+  will-change: transform;
 }
 
 .room-board .sweep-tab {
@@ -8815,8 +9106,17 @@ button.att-card:focus-visible {
   }
 
   .touch-drag-ghost {
+    box-sizing: border-box;
+    overflow: hidden;
     box-shadow: 0 10px 28px rgba(60, 42, 20, 0.22);
     opacity: 0.94;
+  }
+
+  .touch-drag-ghost .seat-name,
+  .touch-drag-ghost .seat-card-meta,
+  .touch-drag-ghost strong {
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .is-touch-dragging {
@@ -8835,7 +9135,7 @@ button.att-card:focus-visible {
 /* 行動端直向，以及手機橫向。平板橫向不套用，版面沿用網頁端。 */
 @media (max-width: 899px) and (orientation: portrait),
   (max-width: 480px),
-  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+  ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
   .preview-sync {
     display: none;
   }
@@ -8916,6 +9216,7 @@ button.att-card:focus-visible {
   }
 
   .booth-choose > .booth-step-label,
+  .booth-choose-scroll > .booth-step-label,
   .booth-preview > .booth-step-label {
     display: none;
   }
@@ -9008,7 +9309,7 @@ button.att-card:focus-visible {
   }
 
   .booth-drop,
-  .booth-drag-card {
+  .booth-drag-card:not(.att-brick):not(.att-card):not(.att-pack) {
     flex-shrink: 0;
     min-height: 72px;
   }
@@ -9035,8 +9336,9 @@ button.att-card:focus-visible {
   }
 }
 
-/* 手機：直向寬度 480px 以下。橫向要又矮又寬（高度 410px 以下、比例至少 16:9）。775×421 的平板橫向（外層約 1163×632）不算手機。 */
-@media (max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px) and (min-aspect-ratio: 16/9)) {
+/* 手機：直向寬度 480px 以下，或橫向高度 410px 以下且寬度 899px 以下。平板硬體由 is-ua-tablet／總像素判定，不套此塊。 */
+@media (max-width: 480px), ((orientation: landscape) and (max-height: 410px) and (max-width: 899px)) {
+  html.is-ua-phone {
   .app.step-home .tool-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
@@ -9161,19 +9463,19 @@ button.att-card:focus-visible {
     touch-action: manipulation;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tbody td:last-child {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tbody td:last-child {
     height: auto;
     align-self: start;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll .preview-cells.is-scroll span {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll .preview-cells.is-scroll span {
     align-self: center;
     height: 40px;
     min-height: 40px;
     max-height: 40px;
   }
 
-  .app.is-desk.step-map .panel-head.is-extras {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .panel-head.is-extras {
     display: none;
   }
 
@@ -9196,8 +9498,8 @@ button.att-card:focus-visible {
     color: var(--ink);
   }
 
-  .app.is-desk.step-map .confirm-section:first-of-type,
-  .app.is-desk.step-map .confirm-section:nth-of-type(2) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:first-of-type,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:nth-of-type(2) {
     flex: none;
     height: auto;
     min-height: 0;
@@ -9205,30 +9507,30 @@ button.att-card:focus-visible {
     overflow: visible;
   }
 
-  .app.is-desk.step-map .table-wrap {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .table-wrap {
     flex: none;
     height: auto;
     min-height: 0;
     overflow: visible;
   }
 
-  .app.is-desk .site-header .step-rail {
+  :is(.app.is-desk, .app.is-flow) .site-header .step-rail {
     display: none;
   }
 
   .extra-grid,
   .app.is-desk .extra-grid,
-  .app.is-desk.step-map .extra-grid {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-grid {
     grid-template-columns: 1fr;
     overflow-anchor: none;
   }
 
-  .app.is-desk.step-map,
-  .app.is-desk.step-map .site-main,
-  .app.is-desk.step-map .step-page,
-  .app.is-desk.step-map .confirm-panel,
-  .app.is-desk.step-map .confirm-section,
-  .app.is-desk.step-map .table-wrap {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map),
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .site-main,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .step-page,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-panel,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .table-wrap {
     height: auto;
     max-height: none;
     min-width: 0;
@@ -9237,40 +9539,40 @@ button.att-card:focus-visible {
     touch-action: manipulation;
   }
 
-  .app.is-desk.step-map .extra-card,
-  .app.is-desk.step-map .extra-card-body,
-  .app.is-desk.step-map .extra-card-main,
-  .app.is-desk.step-map .extra-placeholder,
-  .app.is-desk.step-map .image-preview-wrap,
-  .app.is-desk.step-map .image-preview {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-main,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-placeholder,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .image-preview-wrap,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .image-preview {
     overflow: clip;
     pointer-events: none;
     overscroll-behavior: auto;
     touch-action: manipulation;
   }
 
-  .app.is-desk.step-map .extra-card-head,
-  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .seq-option,
-  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .static-row,
-  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .extra-card-foot,
-  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .image-pick,
-  .app.is-desk.step-map .extra-card-body:not(.is-disabled) .image-preview-del {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-head,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body:not(.is-disabled) .seq-option,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body:not(.is-disabled) .static-row,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body:not(.is-disabled) .extra-card-foot,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body:not(.is-disabled) .image-pick,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card-body:not(.is-disabled) .image-preview-del {
     pointer-events: auto;
     touch-action: manipulation;
   }
 
-  .app.is-desk.step-map .extra-card {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card {
     height: auto;
     min-height: 0;
   }
 
-  .app.is-desk.step-map .extra-card .image-preview-wrap {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card .image-preview-wrap {
     flex: 1 1 auto;
     min-height: 0;
     overflow: clip;
   }
 
-  .app.is-desk.step-map .extra-card .image-preview {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .extra-card .image-preview {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -9354,27 +9656,33 @@ button.att-card:focus-visible {
     width: 110px;
   }
 
+  /* 立起預覽視窗加高，牌子下移，避免被「立起預覽」標題擋住 */
   .stand-viewport {
-    height: 62px;
+    height: 100px;
+  }
+
+  .tent-3d {
+    bottom: 16px;
+  }
   }
 }
 
-/* 平板直向：預覽區高度是鎖定的，標籤要跟著每一列撐開，拉桿留在區底。 */
+/* 平板直向：預覽區高度鎖定、可捲；列高跟內容，不把預覽元素撐高。 */
 @media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
-  .app.is-desk.step-map .confirm-section:first-of-type {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:first-of-type {
     flex: 2 1 50%;
   }
 
-  .app.is-desk.step-map .confirm-section:nth-of-type(2) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .confirm-section:nth-of-type(2) {
     flex: 1 1 32%;
   }
 
-  .app.is-desk.step-map .table-wrap {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .table-wrap {
     position: relative;
     overflow: visible;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll {
     position: absolute;
     inset: 0;
     display: flex;
@@ -9383,14 +9691,15 @@ button.att-card:focus-visible {
     height: auto;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll thead,
-  .app.is-desk.step-map .map-table.is-preview-scroll tfoot {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll thead,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tfoot {
     flex: none;
     display: block;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tbody {
-    flex: 1 1 auto;
+  /* 列少時只佔內容高度，拉桿緊接在最後一列預覽下方；列多時才在區內捲動。 */
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tbody {
+    flex: 0 1 auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -9398,92 +9707,122 @@ button.att-card:focus-visible {
     overflow: auto;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tr {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tr {
     display: flex;
     align-items: stretch;
     width: 100%;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tbody tr {
-    flex: 1 1 0;
+  /* 列高跟內容走，不要把預覽元素撐滿整段預覽區。 */
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tbody tr {
+    flex: none;
     min-height: 56px;
     height: auto;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll th,
-  .app.is-desk.step-map .map-table.is-preview-scroll td {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll th,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll td {
     display: flex;
     align-items: center;
     min-width: 0;
     box-sizing: border-box;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll .col-check {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll .col-check {
     flex: 0 0 76px;
     justify-content: center;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll th:nth-child(2),
-  .app.is-desk.step-map .map-table.is-preview-scroll td:nth-child(2) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll th:nth-child(2),
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll td:nth-child(2) {
     flex: 0 0 9.5rem;
     width: auto;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll th:last-child,
-  .app.is-desk.step-map .map-table.is-preview-scroll td:last-child {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll th:last-child,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll td:last-child {
     flex: 1 1 auto;
-    align-items: stretch;
+    align-items: center;
     width: auto;
     height: auto;
   }
 
-  .app.is-desk.step-map .preview-cells.is-scroll {
-    flex: 1 1 auto;
-    align-self: stretch;
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-cells.is-scroll {
+    flex: none;
+    align-self: center;
     height: auto;
     min-height: 0;
   }
 
-  .app.is-desk.step-map .preview-cells.is-scroll span {
-    align-self: stretch;
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-cells.is-scroll span {
+    align-self: center;
     height: auto;
     min-height: 48px;
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tfoot td {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tfoot td {
     background: var(--card);
   }
 
-  .app.is-desk.step-map .map-table.is-preview-scroll tr.preview-caption-row {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .map-table.is-preview-scroll tr.preview-caption-row {
     display: none;
   }
 }
 
+/* 平板直向大師系列：只鎖外層卷軸，版面不動。網址列出現時 100vh 比可視區高，會多出可捲的空白。 */
+@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
+  html.is-ua-tablet:has(.app.is-master),
+  html.is-ua-tablet:has(.app.is-master) body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  /* 遊覽車／排座位編輯頁卡片區固定 30vh；卡片尺寸不變，空間夠就多排幾列。 */
+  html.is-ua-tablet .seat-assign:has(.bus-chart) .seat-assign-body,
+  html.is-ua-tablet .seat-assign:has(.seat-room) .seat-assign-body {
+    grid-template-rows: minmax(0, 1fr) 30vh;
+  }
+
+  html.is-ua-tablet .seat-assign:has(.bus-chart) .seat-pool,
+  html.is-ua-tablet .seat-assign:has(.seat-room) .seat-pool {
+    box-sizing: border-box;
+    height: 30vh;
+    min-height: 0;
+  }
+
+  html.is-ua-tablet .seat-assign:has(.bus-chart) .seat-pool-list,
+  html.is-ua-tablet .seat-assign:has(.seat-room) .seat-pool-list {
+    flex: 1 1 0;
+    height: auto;
+    grid-template-rows: repeat(auto-fill, var(--pool-card));
+  }
+}
+
 /* 平板橫向：拍貼機選擇頁、立起預覽、預覽列印、編輯器。其餘介面仍沿用網頁端橫向。 */
-@media (orientation: landscape) and (max-width: 899px) and (min-height: 411px),
-  (orientation: landscape) and (max-width: 899px) and (max-height: 410px) and (max-aspect-ratio: 1.75) {
-  .app.is-desk.step-upload {
+@media (orientation: landscape) and (max-width: 899px) {
+  html.is-ua-tablet {
+  :is(.app.is-desk.step-upload, .app.is-flow.step-upload) {
     box-sizing: border-box;
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
   }
 
-  .app.is-desk.step-upload .site-header {
+  :is(.app.is-desk.step-upload, .app.is-flow.step-upload) .site-header {
     zoom: 0.7;
     align-items: center;
   }
 
-  .app.is-desk.step-upload .site-main {
+  :is(.app.is-desk.step-upload, .app.is-flow.step-upload) .site-main {
     min-height: 0;
     overflow: hidden;
   }
 
-  .app.is-desk.step-map .preview-sync {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-sync {
     display: none;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden]) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden]) {
     --range-thumb: 22px;
     display: block;
     box-sizing: border-box;
@@ -9502,19 +9841,19 @@ button.att-card:focus-visible {
     cursor: pointer;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden]):focus,
-  .app.is-desk.step-map .preview-range:not([hidden]):focus-visible {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden]):focus,
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden]):focus-visible {
     outline: none;
     box-shadow: none;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden])::-webkit-slider-runnable-track {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden])::-webkit-slider-runnable-track {
     height: 6px;
     background: #d9d3c6;
     border-radius: 999px;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden])::-webkit-slider-thumb {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden])::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: var(--range-thumb);
@@ -9526,14 +9865,14 @@ button.att-card:focus-visible {
     cursor: pointer;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden])::-moz-range-track {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden])::-moz-range-track {
     height: 6px;
     background: #d9d3c6;
     border: 0;
     border-radius: 999px;
   }
 
-  .app.is-desk.step-map .preview-range:not([hidden])::-moz-range-thumb {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map) .preview-range:not([hidden])::-moz-range-thumb {
     width: var(--range-thumb);
     height: var(--range-thumb);
     border: 0;
@@ -9866,16 +10205,285 @@ button.att-card:focus-visible {
     cursor: default;
     touch-action: manipulation;
   }
+
+  /* 大師選擇／預覽：對齊桌牌橫向——預覽左、選擇右。不更動桌牌本身。 */
+  .seat-setup .booth-main {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 42%);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+    zoom: 0.65;
+  }
+
+  .seat-setup .booth-step-label {
+    display: none;
+  }
+
+  .seat-setup .booth-preview {
+    order: 0;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .seat-setup .booth-choose {
+    grid-column: 2;
+    grid-row: 1;
+    border-right: none;
+    border-left: 1px solid var(--line);
+    border-top: none;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .seat-setup .seat-preview-stage {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  /* 選擇布局：排／每排單位輸入框與加減鈕放大 50% */
+  .seat-setup .seat-grid-fields {
+    zoom: 1.5;
+    max-width: none;
+  }
+
+  /* 遊覽車編輯：名單 40vw、資訊 0.65；收掉右側預留讓車圖等比撐滿高度，資訊疊在右上。 */
+  .seat-assign:has(.bus-chart) .seat-assign-body {
+    grid-template-columns: minmax(0, 1fr) 40vw;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .seat-assign:has(.bus-chart) .seat-assign-scroll {
+    padding: 8px 12px 8px 8px;
+  }
+
+  .seat-assign:has(.bus-chart) .bus-stage {
+    place-items: center start;
+  }
+
+  .seat-assign:has(.bus-chart) .seat-pool {
+    border-left: 1px solid var(--line);
+    border-top: none;
+    padding: 10px 8px 12px;
+    min-height: 0;
+  }
+
+  /* Zoom children only so the map column / bus-chart size stays put. */
+  .seat-assign:has(.bus-chart) .seat-pool-head,
+  .seat-assign:has(.bus-chart) .seat-pool-list {
+    zoom: 0.65;
+  }
+
+  .seat-assign:has(.bus-chart) .bus-info {
+    zoom: 0.65;
+  }
+
+  .seat-assign:has(.bus-chart) .seat-pool-list {
+    --pool-card: 56px;
+    flex: 1 1 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--pool-card), 1fr));
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    justify-content: stretch;
+    align-content: start;
+    align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+
+  .seat-assign:has(.bus-chart) .seat-pool-card {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    align-self: start;
+  }
+
+  /* 排座位編輯：名單 40vw；預覽與名單同縮 0.65；教室圖等比撐滿可用寬高。 */
+  .seat-assign:has(.seat-room) .seat-assign-body {
+    grid-template-columns: minmax(0, 1fr) 40vw;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .seat-assign:has(.seat-room) .seat-assign-map,
+  .seat-assign:has(.seat-room) .seat-pool {
+    zoom: 0.65;
+  }
+
+  .seat-assign:has(.seat-room) .seat-pool {
+    border-left: 1px solid var(--line);
+    border-top: none;
+    padding: 10px 8px 12px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .seat-assign:has(.seat-room) .seat-assign-scroll {
+    place-items: center;
+    padding: 8px 64px 64px 8px;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    container-type: size;
+  }
+
+  .seat-assign:has(.seat-room) .seat-assign-map .seat-room.is-portrait {
+    width: min(100cqi, calc(100cqb * 210 / 297));
+    max-width: 100%;
+    height: auto;
+  }
+
+  .seat-assign:has(.seat-room) .seat-assign-map .seat-room.is-landscape {
+    width: min(100cqi, calc(100cqb * 297 / 210));
+    max-width: 100%;
+    height: auto;
+  }
+
+  .seat-assign:has(.seat-room) .seat-assign-map .seat-room.is-square {
+    width: min(100cqi, 100cqb);
+    max-width: 100%;
+    height: auto;
+  }
+
+  .seat-assign:has(.seat-room) .seat-pool-list {
+    --pool-card: 72px;
+    flex: 1 1 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--pool-card), 1fr));
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    justify-content: stretch;
+    align-content: start;
+    align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+
+  .seat-assign:has(.seat-room) .seat-pool-card {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    align-self: start;
+  }
+
+  /* 編輯頁角落按鈕放大 50% */
+  .seat-assign:has(.seat-room) .seat-corner-actions .btn {
+    width: clamp(72px, 10.8vmin, 120px);
+    height: clamp(72px, 10.8vmin, 120px);
+    font-size: clamp(0.87rem, 2.325vmin, 1.26rem);
+    padding: clamp(6px, 1.2vmin, 12px);
+  }
+
+  /* 排掃地編輯：新增資訊列、掃區、卡片區同縮 0.65 */
+  .sweep-toolbar,
+  .sweep-body {
+    zoom: 0.65;
+  }
+
+  .sweep-body {
+    grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.75fr);
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  /* 排房間：房型選擇改 2×3；預設仍只開左上角那一格。 */
+  .room-setup-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    align-content: start;
+  }
+
+  /* 超過六人房：橫向改兩列換行。 */
+  .room-folder > .sweep-folder-body.is-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .seat-print-bar {
+    zoom: 0.7;
+  }
+
+  .seat-print-stage {
+    zoom: 0.65;
+  }
+  }
 }
 
-/* 平板：確認欄位、模式選擇（含標題與階段），以及拍貼機選擇區，縮為 70%。 */
-@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px),
-  (orientation: landscape) and (max-width: 899px) and (min-height: 411px),
-  (orientation: landscape) and (max-width: 899px) and (max-height: 410px) and (max-aspect-ratio: 1.75) {
-  .app.is-desk.step-map,
+/* 手機橫向：全版提示直向；鎖定底層互動（僅 手機端）。 */
+html.is-phone-portrait-locked,
+html.is-phone-portrait-locked body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+html.is-phone-portrait-locked #root > :not(.phone-portrait-lock) {
+  pointer-events: none !important;
+  user-select: none !important;
+  touch-action: none !important;
+}
+
+.phone-portrait-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background: #10241f;
+  color: #f4fff9;
+  text-align: center;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
+.phone-portrait-lock p {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 6vmin 8vmin;
+  font-family: var(--font-ui);
+  font-size: clamp(1.6rem, 7.5vmin, 3.2rem);
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+}
+
+@media print {
+  .phone-portrait-lock {
+    display: none !important;
+  }
+}
+
+/* 平板：確認欄位、選擇區維持 1。 */
+@media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
+  :is(.app.is-desk.step-map, .app.is-flow.step-map),
   .app.is-desk.step-choose,
   .app.is-desk.step-booth .booth-choose {
-    zoom: 0.7;
+    zoom: 1;
   }
 
   .app.is-desk .stand-preview.is-static {
@@ -9884,43 +10492,192 @@ button.att-card:focus-visible {
   }
 }
 
-/* 平板直向：預覽改到選擇區下方，高度占比維持原樣。 */
+@media (orientation: landscape) and (max-width: 899px) {
+  html.is-ua-tablet .app.step-home {
+    zoom: 0.7;
+  }
+
+  /* 確認欄位／房間設定等預覽頁：與桌牌同 0.7 */
+  html.is-ua-tablet :is(.app.is-desk.step-map, .app.is-flow.step-map),
+  html.is-ua-tablet .app.is-master.step-map {
+    zoom: 0.7;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-choose .site-header,
+  html.is-ua-tablet .app.is-master.step-seat .seat-work-head,
+  html.is-ua-tablet .app.is-master.step-seat > .site-header,
+  html.is-ua-tablet .app.step-snap > .seat-work-head,
+  html.is-ua-tablet .app.step-att .att-header {
+    zoom: 0.7;
+  }
+
+  /* 桌牌／名牌編輯器：上下工具列、角落按鈕同 0.7 */
+  html.is-ua-tablet .app.is-desk.step-edit .editor-toolbar,
+  html.is-ua-tablet .app.is-desk.step-edit .editor-subbar,
+  html.is-ua-tablet .app.is-desk.step-edit .canvas-corner-actions {
+    zoom: 0.7;
+  }
+
+  /*
+   * 物件功能列定值（捏合時由 paperZoom 反比縮回）：
+   * 桌牌紙面被 fit 縮小，×3 才夠點；名牌幾乎 1:1，同樣 ×3 會異常大，維持 ×1。
+   */
+  html.is-ua-tablet .app.is-desk.step-edit .editor-shell.is-plate .item-mini-bar {
+    zoom: 3;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-edit .editor-shell.is-badge .item-mini-bar {
+    zoom: 1;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-edit .editor-shell.is-badge-expo .item-mini-bar {
+    zoom: 1.5;
+  }
+
+  /* 圖片外框彈窗：矮橫向收緊邊距，舞台尺寸由 JS 依可視高縮放。 */
+  html.is-ua-tablet .image-frame-dialog {
+    padding: 8px;
+  }
+
+  html.is-ua-tablet .image-frame-dialog .image-frame-card {
+    width: min(100%, 480px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow: auto;
+    gap: 8px;
+    padding: 14px 14px 12px;
+  }
+
+  /* 出缺席編輯：快拉區／封裝區／卡片區同縮 0.65 */
+  html.is-ua-tablet .app.step-att .att-stage,
+  html.is-ua-tablet .app.step-att .att-palette {
+    zoom: 0.65;
+  }
+
+  /* 選擇區本體：與桌牌拍貼機選擇同 0.65（排座位選擇的 booth-main 已在上方區塊縮 0.65） */
+  html.is-ua-tablet .app.is-desk.step-choose .site-main,
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose {
+    zoom: 0.65;
+  }
+
+  /* 平板橫向選擇頁：有溢位時套用自訂卷軸（5px 視覺／10px 判定）。 */
+  html.is-ua-tablet .booth-choose > .pool-scroller,
+  html.is-ua-tablet .app.is-desk.step-choose .site-main > .pool-scroller,
+  html.is-ua-tablet .app.is-master.step-map .step-page > .pool-scroller {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  html.is-ua-tablet .pool-scroller > .booth-choose-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose {
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-booth .pool-scroller > .booth-choose-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-bottom: 8px;
+  }
+
+  html.is-ua-tablet .seat-setup .booth-choose {
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .app.is-desk.step-choose .site-main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .app.is-master.step-map .site-main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .app.is-master.step-map .step-page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  html.is-ua-tablet .app.is-desk .stand-preview.is-static {
+    left: 10px;
+    right: auto;
+  }
+}
+
+/* 平板直向桌牌拍貼機：預覽在上、選擇在下（沿用預設 order:-1）；預覽高 45vh。 */
 @media (orientation: portrait) and (min-width: 481px) and (max-width: 899px) {
-  .app.is-desk.step-booth .booth-choose {
-    order: 0;
-    border-top: none;
-    border-bottom: 1px solid var(--line);
+  html.is-ua-tablet .app.is-desk.step-booth .booth-preview,
+  html.is-ua-tablet .app.step-booth .booth-preview {
+    height: 45vh;
+    max-height: 45vh;
   }
 
-  .app.is-desk.step-booth .booth-preview {
-    order: 1;
-  }
-}
-
-.screen-debug {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10000;
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  padding: 4px 10px calc(4px + env(safe-area-inset-bottom));
-  background: rgba(16, 36, 31, 0.9);
-  color: #f4fff9;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-}
-
-@media print {
-  .screen-debug {
-    display: none !important;
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose {
+    border-top: 1px solid var(--line);
+    border-bottom: none;
   }
 }
 
+/* 直向桌牌拍貼機：空間夠時按鈕靠左下，不撐高頁面。放不下時選擇區可捲到按鈕，並避開底部除錯列。 */
+@media (orientation: portrait) {
+  html:has(.app.is-desk.step-booth),
+  html:has(.app.is-desk.step-booth) body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app.is-desk.step-booth .booth-choose,
+  html.is-ua-phone .app.is-desk.step-booth .booth-choose,
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .app.is-desk.step-booth .booth-choose-scroll,
+  html.is-ua-phone .app.is-desk.step-booth .booth-choose-scroll,
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose-scroll {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 100%;
+    padding: 22px 20px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .app.is-desk.step-booth .booth-choose-body,
+  html.is-ua-phone .app.is-desk.step-booth .booth-choose-body,
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose-body {
+    flex: none;
+    height: auto;
+    overflow: visible;
+  }
+
+  .app.is-desk.step-booth .booth-choose-scroll > .booth-actions,
+  html.is-ua-phone .app.is-desk.step-booth .booth-choose-scroll > .booth-actions,
+  html.is-ua-tablet .app.is-desk.step-booth .booth-choose-scroll > .booth-actions {
+    margin-top: auto;
+    justify-content: flex-start;
+  }
+}
 
 

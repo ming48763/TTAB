@@ -348,3 +348,12 @@ export function totalCardWidthMm(mode: PlateMode, widthMm: number) {
 
 /** Triangle tent: flaps 1/6 + faces 1/3 + 1/3 + flap 1/6 */
 export const DESK_FOLD_PCTS = [100 / 6, 50, 500 / 6] as const
+
+/**
+ * Desk edit face spans 50%–83.3% of the card; its vertical mid is at 2/3.
+ * Offset from paper mid (1/2) so fit-mode pan home centers that mid, not the sheet.
+ */
+export function deskEditFocusOffsetY(paperViewH: number, mode: PlateMode) {
+  if (mode !== 'desk' || paperViewH <= 0) return 0
+  return -paperViewH / 6
+}
