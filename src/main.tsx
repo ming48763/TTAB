@@ -8,7 +8,9 @@ import './index.css'
 
 installTouchDrag()
 
-const UI_SCALE = 1.5
+/** 行動端縮放框（寬螢幕 mobile UA）維持 1.5；網頁端改 1 倍。 */
+const MOBILE_UI_SCALE = 1.5
+const DESKTOP_UI_SCALE = 1
 /** Desktop UA 的 iframe 內層至少這麼寬，才會維持網頁端 CSS。 */
 const DESKTOP_MIN_INNER = 900
 
@@ -26,12 +28,12 @@ function mountApp() {
 function desktopFrameBox() {
   const outerW = window.innerWidth
   const outerH = window.innerHeight
-  const innerFromScale = outerW / UI_SCALE
+  const innerFromScale = outerW / DESKTOP_UI_SCALE
   if (innerFromScale >= DESKTOP_MIN_INNER) {
     return {
-      width: `calc(100vw / ${UI_SCALE})`,
-      height: `calc(100dvh / ${UI_SCALE})`,
-      zoom: String(UI_SCALE),
+      width: `calc(100vw / ${DESKTOP_UI_SCALE})`,
+      height: `calc(100dvh / ${DESKTOP_UI_SCALE})`,
+      zoom: String(DESKTOP_UI_SCALE),
     }
   }
   const zoom = outerW / DESKTOP_MIN_INNER
@@ -48,9 +50,9 @@ function mountScaledFrame() {
   const mobile = detectMobile()
   const box = mobile
     ? {
-        width: `calc(100vw / ${UI_SCALE})`,
-        height: `calc(100dvh / ${UI_SCALE})`,
-        zoom: String(UI_SCALE),
+        width: `calc(100vw / ${MOBILE_UI_SCALE})`,
+        height: `calc(100dvh / ${MOBILE_UI_SCALE})`,
+        zoom: String(MOBILE_UI_SCALE),
       }
     : desktopFrameBox()
   const frame = document.createElement('iframe')

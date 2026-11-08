@@ -9,13 +9,13 @@ There are four layouts. 行動端 is tablet and phone together. 手機端 is the
 
 | Layout | When it applies |
 | --- | --- |
-| 網頁端直向 | Outer width ≥ 900px, portrait. The app sits in the 1.5× iframe. |
+| 網頁端直向 | Outer width ≥ 900px, portrait. The app sits in the 1× iframe. |
 | 網頁端橫向 | Outer width ≥ 900px, landscape. Same iframe. |
 | 平板端 | 行動端 (`max-width: 899px`) and not 手機端. Android tablets around 600px wide, and landscape tablets scaled to about 640×400, stay here. |
 | 手機端 | Not tablet hardware, and (`max-width: 480px`, or landscape and `max-height: 410px` and `max-width: 899px`). No aspect-ratio test. |
 
-- 行動端 CSS is `@media (max-width: 899px)`. Do not raise 899. Do not use 1100. A 1400px desktop window becomes an iframe about 933px wide, so it stays 網頁端.
-- iPad landscape (outer 1024) becomes an iframe about 682×512. That is 平板端. iPad Pro 12.9 landscape (outer 1366) becomes about 911px wide and stays 網頁端.
+- 行動端 CSS is `@media (max-width: 899px)`. Do not raise 899. Do not use 1100. A 1400px desktop window at 1× is 1400px wide and stays 網頁端.
+- iPad landscape (outer 1024) becomes an iframe about 682×512 (mobile 1.5× frame). That is 平板端. iPad Pro 12.9 landscape (outer 1366) becomes about 911px wide and stays 網頁端.
 - Phone rules come after the 899 block. Portrait phones are at most 480px wide. Landscape phones are short (`max-height: 410px`) without an aspect-ratio test. Tablet hardware is decided by screen area (`>= 500000` CSS px²), not aspect ratio; those devices get `html.is-ua-tablet` and stay 平板端.
 - Tablet portrait fill uses `min-width: 481px` inside the 899 block. Do not treat 481–899px as a phone.
 - 平板端橫向 keeps the 網頁端橫向 layout. The `max-width: 899px` and `max-width: 900px` layout rules apply only in portrait, or on 手機端. Card dragging on 平板端橫向 still uses the touch long-press in `src/lib/touchDrag.ts` (`max-width: 899px`). Do not switch those cards back to mouse-only dragging.
@@ -26,5 +26,5 @@ There are four layouts. 行動端 is tablet and phone together. 手機端 is the
 - 大師 tools (Seating, Bus, Sweep, Room) put `is-master` on the app root at every step. In tablet portrait, html/body with `.app.is-master` get `overflow: hidden` to lock the outer scrollbar without changing the layout. Bus and Seating assign card areas (`.seat-pool`) are fixed at 30vh on tablet portrait; cards stay 72px and fill more rows. Attendance cards use the same touch long-press drag as other mobile cards (`.att-card` in `touchDrag.ts`).
 - Browser kind lives in `detectBrowser()` (`src/lib/screenLayout.ts`). Order: Edge, Samsung, Opera, Firefox, Chrome (incl. CriOS), Safari, else 其他. Prefer `navigator.userAgentData.brands` when present, then fall back to `userAgent`.
 - Mobile UA lives in `detectMobile()`. Trust `userAgentData.mobile === true` only; do not treat `false` as Desktop (Android tablets often report false). Also match Android (phone or tablet), iPhone/iPod/iPad/Tablet/Silk, iPadOS MacIntel+touch, or coarse pointer + hover:none + multi-touch (desktop-site spoofing). PC Chrome with a mouse stays Desktop.
-- Phone vs tablet: `detectDeviceKind()` uses `detectTablet()` when mobile and max-width 899 (UA iPad/Tablet/Silk, or total CSS px² via `deviceAreaPx()` ≥ 500000). Inside the 1.5× iframe (`?ui=1`), area uses the outer window (e.g. inner 775×421 → outer ~1163×632≈735k → 平板端). Unframed phone 390×875≈341k → 手機端. Explicit iPad UA stays 平板端 even if the viewport area is under 500000, so landscape is not locked by PhonePortraitLock. No aspect-ratio tests.
-- Desktop UA (`!detectMobile()`) is always 網頁端: `detectDeviceKind()` returns 網頁端 first, and `main.tsx` always mounts the 1.5× iframe (never the compact direct app). If outer/1.5 would be under 900px, the desktop iframe keeps a 900px-wide inner viewport and lowers zoom so PC Chrome cannot fall into 平板端. Mobile UA still uses the existing 899 / phone viewport rules.
+- Phone vs tablet: `detectDeviceKind()` uses `detectTablet()` when mobile and max-width 899 (UA iPad/Tablet/Silk, or total CSS px² via `deviceAreaPx()` ≥ 500000). Inside the scaled iframe (`?ui=1`), area uses the outer window (e.g. mobile 1.5× inner 775×421 → outer ~1163×632≈735k → 平板端). Unframed phone 390×875≈341k → 手機端. Explicit iPad UA stays 平板端 even if the viewport area is under 500000, so landscape is not locked by PhonePortraitLock. No aspect-ratio tests.
+- Desktop UA (`!detectMobile()`) is always 網頁端: `detectDeviceKind()` returns 網頁端 first, and `main.tsx` always mounts the 1× iframe (never the compact direct app). If outer width would be under 900px, the desktop iframe keeps a 900px-wide inner viewport and lowers zoom so PC Chrome cannot fall into 平板端. Mobile UA still uses the existing 899 / phone viewport rules (wide mobile still uses the 1.5× frame).

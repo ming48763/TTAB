@@ -82,7 +82,7 @@ export function viewportAreaPx(): number {
   return Math.max(0, window.innerWidth * window.innerHeight)
 }
 
-/** 1.5× iframe 外層面積。775×421 的外層約 1163×632≈73万。 */
+/** 縮放 iframe（?ui=1）外層面積。行動端 1.5× 時，775×421 的外層約 1163×632≈73万。 */
 export function outerAreaPx(): number {
   if (typeof window === 'undefined') return 0
   if (new URLSearchParams(location.search).get('ui') !== '1') return 0
@@ -106,7 +106,7 @@ export function screenAreaPx(): number {
 
 /**
  * 分手機／平板的總像素。
- * 有外層 iframe 時用外層（不要用被 1.5× 縮小的 775×421）。
+ * 有外層 iframe 時用外層（不要用被縮小的內層，例如行動端 1.5× 的 775×421）。
  * 否則：390×875≈34万→手機；平板 screen／視窗 ≥50万→平板。
  */
 export function deviceAreaPx(): number {
@@ -114,7 +114,7 @@ export function deviceAreaPx(): number {
   const scr = screenAreaPx()
   const outer = outerAreaPx()
 
-  // 縮放框內一律以外層為準（平板橫向 775×421 外層約 73万）
+  // 縮放框內一律以外層為準（行動端 1.5× 平板橫向 775×421 外層約 73万）
   if (outer > 0) return outer
 
   if (view <= 0) return scr
