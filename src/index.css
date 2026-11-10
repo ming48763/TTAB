@@ -1109,6 +1109,16 @@ button.brand-mark:focus-visible {
   font-size: 0.92rem;
 }
 
+.sample-roster-download {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.sample-roster-download .btn {
+  text-decoration: none;
+}
+
 .form-error {
   color: var(--danger);
   margin: 12px 0 0;
@@ -5829,6 +5839,11 @@ button.att-card.is-to:active {
   transform: none;
 }
 
+/* Tools sit in the same seat grid (right of #30), not a wrapped second row. */
+.att-card-grid > .att-tool-row {
+  display: contents;
+}
+
 .att-tool-row {
   display: flex;
   gap: 5px;
@@ -5838,6 +5853,15 @@ button.att-card.is-to:active {
 .att-tool-row .att-card {
   width: 46px;
   flex: 0 0 46px;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+}
+
+.att-card-grid > .att-tool-row .att-card {
+  width: auto;
+  min-width: 0;
+  flex: none;
+  height: auto;
 }
 
 button.att-card,
@@ -9663,6 +9687,152 @@ button.att-card:focus-visible,
 
   .tent-3d {
     bottom: 16px;
+  }
+
+  /* 大師系列編輯／選擇頁：鎖外層卷軸，避免 100vh 比可視區高。 */
+  &:has(.app.is-master),
+  &:has(.app.is-master) body,
+  &:has(.app.is-master) #root {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app.is-master,
+  .seat-assign,
+  .seat-setup,
+  .app.step-seat:has(.seat-setup),
+  .app.step-att,
+  .app.step-seat {
+    box-sizing: border-box;
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .seat-assign-body {
+    min-height: 0;
+  }
+
+  /* 排座位選擇器：預覽收矮，選擇區可捲，按鈕可點到。 */
+  .seat-setup .booth-main,
+  .seat-setup .booth-main:has(.booth-choose.is-grid) {
+    grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .seat-setup .booth-preview,
+  .seat-setup .booth-main:has(.booth-choose.is-grid) .booth-preview {
+    box-sizing: border-box;
+    height: 40dvh;
+    max-height: 40dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .seat-setup .seat-preview-stage,
+  .seat-setup .booth-main:has(.booth-choose.is-grid) .seat-preview-stage {
+    flex: 1 1 auto;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .seat-setup .booth-choose,
+  .seat-setup .booth-choose.is-mode,
+  .seat-setup .booth-choose.is-grid {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .seat-setup .booth-choose-scroll {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 100%;
+    gap: 8px;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .seat-setup .booth-choose-scroll > .booth-actions,
+  .seat-setup .booth-choose.is-mode > .booth-actions,
+  .seat-setup .booth-choose.is-grid > .booth-actions {
+    margin-top: auto;
+    justify-content: flex-start;
+    flex: none;
+    padding-bottom: 4px;
+  }
+
+  /* 出缺席：卡片區固定 45vh；多選／範圍與座號同格。 */
+  .att-board {
+    min-height: 0;
+  }
+
+  .att-palette {
+    flex: 0 0 45vh;
+    height: 45vh;
+    max-height: 45vh;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .att-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .att-card-grid,
+  .att-card-grid.is-seat,
+  .att-card-grid.is-reason,
+  .att-card-grid.is-period {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
+
+  .att-card-grid > .att-tool-row .att-card {
+    width: auto;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+  }
+
+  /* 排房間分配：資料夾改橫向長方形，板面 3×2。 */
+  .room-board .sweep-folder-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    align-content: start;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .room-board .room-folder {
+    aspect-ratio: 3 / 2;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .room-board .room-folder > .sweep-folder-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .room-board .room-folder .room-slot,
+  .room-board .room-folder .seat-pool-card {
+    aspect-ratio: 3 / 2;
+  }
+
+  .room-folder > .sweep-folder-body.is-compact,
+  .room-folder > .sweep-folder-body.is-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   }
 }

@@ -194,6 +194,7 @@ function CardRack({
       : kind === 'period'
         ? [cards.filter((c) => !SPAN_PERIODS.has(c.label)), cards.filter((c) => SPAN_PERIODS.has(c.label))]
         : [cards]
+  const lastGroupIndex = groups.reduce((last, group, i) => (group.length > 0 ? i : last), -1)
   return (
     <section className={`att-rack is-${kind}${shown ? ' is-shown' : ''}`} aria-label={KIND_TITLE[kind]}>
       <header className="att-rack-head">
@@ -217,11 +218,11 @@ function CardRack({
                   compact={compact}
                 />
               ))}
+              {footer && i === lastGroupIndex ? footer : null}
             </div>
           ),
         )}
       </div>
-      {footer}
     </section>
   )
 }

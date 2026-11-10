@@ -9,6 +9,7 @@ import {
   sensitiveColumnsMessage,
 } from '../lib/excel'
 import { swallowFollowingClick } from '../lib/swallowClick'
+import { SampleRosterDownload } from '../components/SampleRosterDownload'
 import { UploadLimitNotice } from '../components/UploadLimitNotice'
 import {
   applyStats,
@@ -354,6 +355,7 @@ export function SnapSheetTool({ onHome }: Props) {
                   >
                     <span className="dropzone-title">拖曳檔案到這裡，或點擊選擇</span>
                   </div>
+                  <SampleRosterDownload />
                   {roster.length > 0 ? (
                     <div className="snap-fold-actions">
                       <p className="snap-hint">已載入：{rosterName || '名冊'}（{roster.length} 人）</p>

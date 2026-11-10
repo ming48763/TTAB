@@ -8,6 +8,7 @@ import {
 } from '../lib/excel'
 import { swallowFollowingClick } from '../lib/swallowClick'
 import type { ColumnMapping, StudentRow } from '../types'
+import { SampleRosterDownload } from './SampleRosterDownload'
 import { UploadLimitNotice } from './UploadLimitNotice'
 
 type LoadedPayload = {
@@ -134,6 +135,8 @@ export function ExcelUpload({
           <span className="dropzone-title">{busy ? '讀取中…' : '拖曳檔案到這裡，或點擊選擇'}</span>
           {dropHint ? <span className="dropzone-hint">{dropHint}</span> : null}
         </div>
+
+        <SampleRosterDownload />
 
         {error && <p className="form-error">{error}</p>}
       </div>
