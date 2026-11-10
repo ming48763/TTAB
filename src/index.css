@@ -5066,7 +5066,8 @@ button.seat-pool-add:active {
   background: color-mix(in srgb, #10241f 42%, transparent);
 }
 
-.seat-print-bar {
+.seat-print-bar,
+.seat-print-chrome {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -5074,6 +5075,13 @@ button.seat-pool-add:active {
   padding: 10px 20px;
   background: color-mix(in srgb, var(--card) 96%, white);
   border-bottom: 1px solid var(--line);
+}
+
+.seat-print-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
 }
 
 .seat-print-paper {
@@ -5085,6 +5093,8 @@ button.seat-pool-add:active {
 
 .seat-print-bar .seg,
 .seat-print-bar .toolbar-drop-btn,
+.seat-print-chrome .seg,
+.seat-print-chrome .toolbar-drop-btn,
 .seat-print-teacher {
   height: 40px;
   box-sizing: border-box;
@@ -5092,6 +5102,8 @@ button.seat-pool-add:active {
 
 .seat-print-bar .seg button,
 .seat-print-bar .toolbar-drop-btn,
+.seat-print-chrome .seg button,
+.seat-print-chrome .toolbar-drop-btn,
 .seat-print-teacher {
   display: inline-flex;
   align-items: center;
@@ -5101,12 +5113,14 @@ button.seat-pool-add:active {
   text-align: center;
 }
 
-.seat-print-bar .seg button {
+.seat-print-bar .seg button,
+.seat-print-chrome .seg button {
   height: 100%;
   padding: 0 14px;
 }
 
 .seat-print-bar .toolbar-drop-btn,
+.seat-print-chrome .toolbar-drop-btn,
 .seat-print-teacher {
   padding: 0 14px;
 }
@@ -5116,7 +5130,8 @@ button.seat-pool-add:active {
   cursor: default;
 }
 
-.seat-print-bar .toolbar-drop {
+.seat-print-bar .toolbar-drop,
+.seat-print-chrome .toolbar-drop {
   z-index: 40;
 }
 
@@ -8376,7 +8391,8 @@ button.att-card:focus-visible,
   }
 
   .pages-preview .preview-fit-row,
-  .seat-print-preview .preview-fit-row {
+  .seat-print-preview .preview-fit-row,
+  .seat-print-preview .seat-print-chrome {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
@@ -8385,7 +8401,8 @@ button.att-card:focus-visible,
   }
 
   .pages-preview-bar,
-  .seat-print-bar {
+  .seat-print-bar,
+  .seat-print-chrome {
     flex: none;
     flex-wrap: nowrap;
     min-width: 0;
@@ -8406,7 +8423,9 @@ button.att-card:focus-visible,
   .pages-preview-actions,
   .seat-print-paper,
   .seat-print-actions,
+  .seat-print-opts,
   .seat-print-preview .preview-fit-row > *,
+  .seat-print-preview .seat-print-chrome > *,
   .pages-preview-split,
   .toolbar-label {
     flex-shrink: 0;
@@ -9815,17 +9834,139 @@ button.att-card:focus-visible,
     border-color: var(--accent-deep);
   }
 
-  /* 排座位預覽列印：操作鈕獨立第二列，不被 fitPreviewRow 縮放切掉。 */
-  .seat-print-bar {
-    flex-wrap: wrap;
-    row-gap: 8px;
+  /* 排座位預覽列印：頂列印出尺寸＋返回編輯靠左、PDF 靠右；樣式列在頁底。 */
+  .seat-assign:has(.seat-room) .seat-print-preview {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'size back . pdf'
+      'stage stage stage stage'
+      'opts opts opts opts';
   }
 
-  .seat-print-actions {
-    flex: 1 0 100%;
+  .seat-assign:has(.seat-room) .seat-print-chrome {
+    display: contents;
+    zoom: 1;
+    width: auto;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-size {
+    grid-area: size;
+    align-self: center;
+    justify-self: start;
+    box-sizing: border-box;
+    min-height: 0;
+    padding: clamp(6px, 1vh, 10px) 0 clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px);
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-actions {
+    display: contents;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-back {
+    grid-area: back;
+    align-self: center;
+    justify-self: start;
+    margin: clamp(6px, 1vh, 10px) 0;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf {
+    grid-area: pdf;
+    align-self: center;
+    justify-self: end;
+    margin: clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px) clamp(6px, 1vh, 10px) 0;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-stage {
+    grid-area: stage;
+    min-height: 0;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-opts {
+    grid-area: opts;
+    box-sizing: border-box;
     width: 100%;
-    margin-left: 0;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    gap: 8px 12px;
+    padding: clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px);
+    background: color-mix(in srgb, var(--card) 96%, white);
+    border-top: 1px solid var(--line);
+    overflow: visible;
+    z-index: 40;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-opts .toolbar-drop-menu {
+    top: auto;
+    bottom: calc(100% - 2px);
+    padding: 6px 0 8px;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-chrome .seg {
+    height: auto;
+    min-height: 0;
+    display: inline-flex;
+    align-items: stretch;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-chrome .seg button,
+  .seat-assign:has(.seat-room) .seat-print-chrome .toolbar-drop-btn,
+  .seat-assign:has(.seat-room) .seat-print-teacher,
+  .seat-assign:has(.seat-room) .seat-print-back,
+  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf {
+    height: auto;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 10px 18px;
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  /* 返回教室設定／預覽列印放大 50%。 */
+  .seat-assign:has(.seat-room) .seat-corner-actions .btn {
+    width: clamp(72px, 10.8vmin, 120px);
+    height: clamp(72px, 10.8vmin, 120px);
+    font-size: clamp(0.87rem, 2.325vmin, 1.26rem);
+  }
+
+  /* 名單固定 30vh。 */
+  .seat-assign:has(.seat-room) .seat-assign-body {
+    grid-template-rows: minmax(0, 1fr) 30vh;
+  }
+
+  .seat-assign:has(.seat-room) .seat-pool {
+    box-sizing: border-box;
+    flex: 0 0 30vh;
+    height: 30vh;
+    max-height: 30vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .seat-assign:has(.seat-room) .seat-pool-list {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+    overflow: auto;
+    grid-template-columns: repeat(auto-fill, var(--pool-card));
+    grid-template-rows: repeat(auto-fill, var(--pool-card));
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+  }
+
+  /* 預覽欄位：隱藏確認欄位標題與「使用／欄位」表頭。 */
+  .app.is-flow.is-master.step-map .panel-head {
+    display: none;
+  }
+
+  .app.is-flow.is-master.step-map .map-table thead th.col-check,
+  .app.is-flow.is-master.step-map .map-table thead th:nth-child(2) {
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    padding-top: 0;
+    padding-bottom: 0;
+    border: 0;
   }
 
   /* 出缺席：卡片區固定 45vh；多選／範圍與座號同格。 */

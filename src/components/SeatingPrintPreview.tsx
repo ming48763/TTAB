@@ -140,7 +140,15 @@ export function SeatingPrintPreview({
 
   useLayoutEffect(() => {
     function fitChrome() {
-      fitPreviewRow(barFitRef.current, 'spread')
+      const row = barFitRef.current
+      if (!row || getComputedStyle(row).display === 'contents') {
+        if (row) {
+          row.style.zoom = ''
+          row.style.width = ''
+        }
+        return
+      }
+      fitPreviewRow(row, 'spread')
     }
     fitChrome()
     window.addEventListener('resize', fitChrome)
@@ -214,9 +222,8 @@ export function SeatingPrintPreview({
       style={{ ['--print-scale' as string]: String(scale) }}
     >
       <style>{`@media print { @page { size: A4 ${paperDir}; margin: 0; } }`}</style>
-      <header className="seat-print-bar no-print">
-        <div className="preview-fit-row" ref={barFitRef}>
-        <div className="seat-print-paper">
+      <div className="seat-print-chrome no-print" ref={barFitRef}>
+        <div className="seat-print-size seat-print-paper">
           <span className="toolbar-label">印出尺寸</span>
           {lockedDir ? (
             <div className="seg">
@@ -243,69 +250,70 @@ export function SeatingPrintPreview({
             </div>
           )}
         </div>
-        <div className="seat-print-paper">
-          <span className="toolbar-label">樣式</span>
-          <div className="toolbar-drop seat-style-drop">
-            <button type="button" className="toolbar-drop-btn">
-              {SEAT_INK_STYLES.find((s) => s.id === inkStyle)?.label ?? '預設'}
-            </button>
-            <div className="toolbar-drop-menu">
-              {SEAT_INK_STYLES.map((opt) => (
+        <div className="seat-print-opts">
+          <div className="seat-print-paper">
+            <span className="toolbar-label">樣式</span>
+            <div className="toolbar-drop seat-style-drop">
+              <button type="button" className="toolbar-drop-btn">
+                {SEAT_INK_STYLES.find((s) => s.id === inkStyle)?.label ?? '預設'}
+              </button>
+              <div className="toolbar-drop-menu">
+                {SEAT_INK_STYLES.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={inkStyle === opt.id ? 'is-active' : ''}
+                    onClick={() => setInkStyle(opt.id)}
+                  >
+                    <span className="seat-style-swatch" style={{ background: opt.swatch }} />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`seat-print-teacher ${teacherView ? 'is-on' : ''}`}
+            aria-pressed={teacherView}
+            onClick={() => setTeacherView((v) => !v)}
+          >
+            老師視角
+          </button>
+          <div className="seat-print-paper">
+            <span className="toolbar-label">空位顯示</span>
+            <div className="toolbar-drop seat-empty-drop">
+              <button type="button" className="toolbar-drop-btn">
+                {emptyMode === 'hide' ? '隱藏空位' : emptyMode === 'auto' ? '自動調整' : '保留空位'}
+              </button>
+              <div className="toolbar-drop-menu">
                 <button
-                  key={opt.id}
                   type="button"
-                  className={inkStyle === opt.id ? 'is-active' : ''}
-                  onClick={() => setInkStyle(opt.id)}
+                  className={emptyMode === 'hide' ? 'is-active' : ''}
+                  onClick={() => setEmptyMode('hide')}
                 >
-                  <span className="seat-style-swatch" style={{ background: opt.swatch }} />
-                  {opt.label}
+                  隱藏空位
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={emptyMode === 'auto' ? 'is-active' : ''}
+                  onClick={() => setEmptyMode('auto')}
+                >
+                  自動調整
+                </button>
+                <button
+                  type="button"
+                  className={emptyMode === 'keep' ? 'is-active' : ''}
+                  onClick={() => setEmptyMode('keep')}
+                >
+                  保留空位
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <button
-          type="button"
-          className={`seat-print-teacher ${teacherView ? 'is-on' : ''}`}
-          aria-pressed={teacherView}
-          onClick={() => setTeacherView((v) => !v)}
-        >
-          老師視角
-        </button>
-        <div className="seat-print-paper">
-          <span className="toolbar-label">空位顯示</span>
-          <div className="toolbar-drop seat-empty-drop">
-            <button type="button" className="toolbar-drop-btn">
-              {emptyMode === 'hide' ? '隱藏空位' : emptyMode === 'auto' ? '自動調整' : '保留空位'}
-            </button>
-            <div className="toolbar-drop-menu">
-              <button
-                type="button"
-                className={emptyMode === 'hide' ? 'is-active' : ''}
-                onClick={() => setEmptyMode('hide')}
-              >
-                隱藏空位
-              </button>
-              <button
-                type="button"
-                className={emptyMode === 'auto' ? 'is-active' : ''}
-                onClick={() => setEmptyMode('auto')}
-              >
-                自動調整
-              </button>
-              <button
-                type="button"
-                className={emptyMode === 'keep' ? 'is-active' : ''}
-                onClick={() => setEmptyMode('keep')}
-              >
-                保留空位
-              </button>
-            </div>
-          </div>
-        </div>
         </div>
         <div className="seat-print-actions">
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn seat-print-back" onClick={onClose}>
             返回編輯
           </button>
           <button
@@ -323,7 +331,7 @@ export function SeatingPrintPreview({
             開始列印
           </button>
         </div>
-      </header>
+      </div>
       <div className={`seat-print-stage${teacherView ? ' is-pair' : ''}`} ref={stageRef}>
         {pages.map((isTeacher) => (
           <div
