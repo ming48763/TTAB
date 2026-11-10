@@ -303,6 +303,7 @@ export function SeatingPrintPreview({
             </div>
           </div>
         </div>
+        </div>
         <div className="seat-print-actions">
           <button type="button" className="btn" onClick={onClose}>
             返回編輯
@@ -321,7 +322,6 @@ export function SeatingPrintPreview({
           <button type="button" className="btn primary is-print" onClick={() => window.print()}>
             開始列印
           </button>
-        </div>
         </div>
       </header>
       <div className={`seat-print-stage${teacherView ? ' is-pair' : ''}`} ref={stageRef}>

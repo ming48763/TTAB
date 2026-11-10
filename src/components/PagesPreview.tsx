@@ -274,6 +274,7 @@ export function PagesPreview({
             </>
           )}
         </div>
+        </div>
         <div className="pages-preview-actions">
           <button type="button" className="btn" onClick={onClose}>
             返回編輯
@@ -292,7 +293,6 @@ export function PagesPreview({
           <button type="button" className="btn primary is-print" onClick={onPrint}>
             開始列印
           </button>
-        </div>
         </div>
         <div className="pages-preview-pager">
           <div className="preview-fit-row" ref={pagerFitRef}>

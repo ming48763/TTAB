@@ -9716,18 +9716,18 @@ button.att-card:focus-visible,
     min-height: 0;
   }
 
-  /* 排座位選擇器：預覽收矮，選擇區可捲，按鈕可點到。 */
+  /* 排座位選擇器：下方選擇區固定 40vh，預覽吃剩餘；模式卡片字級縮小。 */
   .seat-setup .booth-main,
   .seat-setup .booth-main:has(.booth-choose.is-grid) {
-    grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 40vh;
     overflow: hidden;
   }
 
   .seat-setup .booth-preview,
   .seat-setup .booth-main:has(.booth-choose.is-grid) .booth-preview {
     box-sizing: border-box;
-    height: 40dvh;
-    max-height: 40dvh;
+    height: auto;
+    max-height: none;
     min-height: 0;
     overflow: hidden;
   }
@@ -9745,6 +9745,10 @@ button.att-card:focus-visible,
   .seat-setup .booth-choose.is-grid {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    flex: 0 0 40vh;
+    height: 40vh;
+    max-height: 40vh;
     min-height: 0;
     padding: 0;
     overflow-x: hidden;
@@ -9766,10 +9770,62 @@ button.att-card:focus-visible,
   .seat-setup .booth-choose-scroll > .booth-actions,
   .seat-setup .booth-choose.is-mode > .booth-actions,
   .seat-setup .booth-choose.is-grid > .booth-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     margin-top: auto;
     justify-content: flex-start;
     flex: none;
-    padding-bottom: 4px;
+    padding: 8px 0 calc(4px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--card) 96%, white);
+  }
+
+  .seat-setup .booth-choose.is-mode .seat-mode-grid .tool-tile strong {
+    font-size: clamp(11px, calc(var(--tile) * 0.13), 1rem);
+  }
+
+  .seat-setup .booth-choose.is-mode .seat-mode-grid .tool-tile span {
+    font-size: clamp(9px, calc(var(--tile) * 0.085), 0.72rem);
+  }
+
+  /* 所有預覽列印：隱藏開始列印，PDF 靠右綠底白字。 */
+  .pages-preview-actions .is-print,
+  .seat-print-actions .is-print {
+    display: none;
+  }
+
+  .pages-preview-actions,
+  .seat-print-actions {
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .pages-preview-actions .is-pdf,
+  .pages-preview-actions .is-pdf:hover,
+  .seat-print-actions .is-pdf,
+  .seat-print-actions .is-pdf:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #f4fff9;
+  }
+
+  .pages-preview-actions .is-pdf:hover,
+  .seat-print-actions .is-pdf:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
+
+  /* 排座位預覽列印：操作鈕獨立第二列，不被 fitPreviewRow 縮放切掉。 */
+  .seat-print-bar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .seat-print-actions {
+    flex: 1 0 100%;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
 
   /* 出缺席：卡片區固定 45vh；多選／範圍與座號同格。 */

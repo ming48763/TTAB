@@ -236,17 +236,25 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
               </div>
             </div>
           </div>
-          <div className="seat-print-actions">
-            <button type="button" className="btn" onClick={onClose}>
-              返回編輯
-            </button>
-            <button type="button" className="btn" disabled={pdfBusy} onClick={() => setExportChoice('download')}>
-              {pdfBusy ? '匯出中…' : '下載為'}
-            </button>
-            <button type="button" className="btn primary" onClick={() => setExportChoice('print')}>
-              開始列印
-            </button>
-          </div>
+        </div>
+        <div className="seat-print-actions">
+          <button type="button" className="btn" onClick={onClose}>
+            返回編輯
+          </button>
+          <button
+            type="button"
+            className={`btn is-pdf${pdfBusy ? ' is-exporting' : ''}`}
+            disabled={pdfBusy}
+            onClick={() => setExportChoice('download')}
+          >
+            <span className="btn-swap">
+              <span>下載為PDF</span>
+              <span>匯出中…</span>
+            </span>
+          </button>
+          <button type="button" className="btn primary is-print" onClick={() => setExportChoice('print')}>
+            開始列印
+          </button>
         </div>
       </header>
       <div className="seat-print-stage" ref={stageRef}>
