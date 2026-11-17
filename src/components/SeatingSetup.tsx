@@ -189,9 +189,23 @@ export function SeatingSetup({
       const style = getComputedStyle(el)
       const padX = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight)
       const padY = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom)
-      const next = fitModeTiles(tileCount, el.clientWidth - padX, el.clientHeight - padY)
+      const boxW = el.clientWidth - padX
+      const boxH = el.clientHeight - padY
+      const phone = document.documentElement.classList.contains('is-ua-phone')
+      let next = fitModeTiles(tileCount, boxW, boxH)
       if (!next) return
-      if (window.matchMedia('(orientation: portrait)').matches) {
+      /* 手機座位模式：卡片與教室格局同尺寸，多出的由外層選擇區捲動。 */
+      if (phone && phase === 'mode') {
+        const roomSized = fitModeTiles(ROOM_SHAPES.length, boxW, 1e9)
+        if (roomSized) {
+          const tile = roomSized.tile
+          const cols = Math.max(
+            1,
+            Math.min(tileCount, Math.floor((boxW + MODE_TILE_GAP) / (tile + MODE_TILE_GAP))),
+          )
+          next = { tile, cols }
+        }
+      } else if (window.matchMedia('(orientation: portrait)').matches) {
         const choose = el.closest('.booth-choose')
         if (choose) {
           const chooseStyle = getComputedStyle(choose)
@@ -207,7 +221,7 @@ export function SeatingSetup({
     const observer = new ResizeObserver(apply)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [fittingTiles, tileCount])
+  }, [fittingTiles, tileCount, phase])
 
   function seatsShort() {
     return studentCount > cap

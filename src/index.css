@@ -134,7 +134,10 @@ button.brand-mark:focus-visible {
 }
 
 .app.step-home .site-main {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
   padding: 126px 20px 76px;
 }
 
@@ -437,15 +440,32 @@ button.brand-mark:focus-visible {
 
 .booth-align-seg {
   display: flex;
+  flex: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
   width: 100%;
+  min-height: 2.5rem;
 }
 
 .booth-align-seg button {
-  flex: 1;
+  flex: 1 1 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
   min-width: 0;
+  min-height: 2.5rem;
   text-align: center;
   font-size: 0.98rem;
   padding: 9px 12px;
+}
+
+/* 選擇區變矮時改捲動，不要把對齊／槽位等控制列壓扁。 */
+.booth-choose-body > h2,
+.booth-choose-body > .booth-cards,
+.booth-choose-body > .booth-slots,
+.booth-choose-body > .booth-idle,
+.booth-choose-body > .seg,
+.booth-choose-body > .muted {
+  flex-shrink: 0;
 }
 
 .booth-align-seg button.is-active,
@@ -9786,17 +9806,30 @@ button.att-card:focus-visible,
     padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
   }
 
+  /* 與桌牌紙張選擇相同：選擇區整塊捲動，按鈕隨內容走（非獨立 sticky 區塊）。 */
   .seat-setup .booth-choose-scroll > .booth-actions,
   .seat-setup .booth-choose.is-mode > .booth-actions,
   .seat-setup .booth-choose.is-grid > .booth-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
+    position: static;
     margin-top: auto;
     justify-content: flex-start;
     flex: none;
-    padding: 8px 0 calc(4px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--card) 96%, white);
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    background: transparent;
+  }
+
+  /* 座位模式卡片與格局同大時：內容長高，由外層選擇區捲動。 */
+  .seat-setup .booth-choose.is-mode .seat-mode-fit:has(> .seat-mode-grid:not(.is-three)) {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding-top: 6px;
+  }
+
+  .seat-setup .booth-choose.is-mode .seat-mode-fit:has(> .seat-mode-grid:not(.is-three)) .seat-mode-grid {
+    height: auto;
+    max-height: none;
   }
 
   .seat-setup .booth-choose.is-mode .seat-mode-grid .tool-tile strong {
@@ -9805,6 +9838,38 @@ button.att-card:focus-visible,
 
   .seat-setup .booth-choose.is-mode .seat-mode-grid .tool-tile span {
     font-size: clamp(9px, calc(var(--tile) * 0.085), 0.72rem);
+  }
+
+  /* 桌牌／名牌預覽列印：返回＋下載在上，布局在下。 */
+  .pages-preview > .pages-preview-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .pages-preview .preview-fit-row {
+    display: flex;
+    width: 100%;
+    order: 2;
+  }
+
+  .pages-preview-actions {
+    order: 1;
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .pages-preview-layout {
+    width: 100%;
+    justify-content: center;
+    justify-self: stretch;
+  }
+
+  .pages-preview-pager {
+    order: 3;
   }
 
   /* 所有預覽列印：隱藏開始列印，PDF 靠右綠底白字。 */
@@ -9834,8 +9899,9 @@ button.att-card:focus-visible,
     border-color: var(--accent-deep);
   }
 
-  /* 排座位預覽列印：頂列印出尺寸＋返回編輯靠左、PDF 靠右；樣式列在頁底。 */
-  .seat-assign:has(.seat-room) .seat-print-preview {
+  /* 排座位／遊覽車預覽列印：頂列尺寸＋返回靠左、PDF 靠右；樣式列在頁底。 */
+  .seat-assign:has(.seat-room) .seat-print-preview,
+  .seat-assign:has(.bus-chart) .seat-print-preview {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-rows: auto minmax(0, 1fr) auto;
@@ -9845,50 +9911,88 @@ button.att-card:focus-visible,
       'opts opts opts opts';
   }
 
-  .seat-assign:has(.seat-room) .seat-print-chrome {
+  /* display:contents 會吃掉 chrome 底圖，用偽元素補回頂欄。 */
+  .seat-assign:has(.seat-room) .seat-print-preview::before,
+  .seat-assign:has(.bus-chart) .seat-print-preview::before {
+    content: '';
+    grid-column: 1 / -1;
+    grid-row: 1;
+    background: color-mix(in srgb, var(--card) 96%, white);
+    border-bottom: 1px solid var(--line);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-chrome,
+  .seat-assign:has(.bus-chart) .seat-print-chrome {
     display: contents;
     zoom: 1;
     width: auto;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-size {
+  .seat-assign:has(.seat-room) .seat-print-size,
+  .seat-assign:has(.bus-chart) .seat-print-size {
     grid-area: size;
     align-self: center;
     justify-self: start;
     box-sizing: border-box;
     min-height: 0;
     padding: clamp(6px, 1vh, 10px) 0 clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px);
+    z-index: 1;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-actions {
+  .seat-assign:has(.seat-room) .seat-print-size .toolbar-label,
+  .seat-assign:has(.bus-chart) .seat-print-size .toolbar-label {
+    display: none;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-actions,
+  .seat-assign:has(.bus-chart) .seat-print-actions {
     display: contents;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-back {
+  .seat-assign:has(.seat-room) .seat-print-back,
+  .seat-assign:has(.bus-chart) .seat-print-back {
     grid-area: back;
     align-self: center;
     justify-self: start;
     margin: clamp(6px, 1vh, 10px) 0;
+    z-index: 1;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf {
+  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf,
+  .seat-assign:has(.bus-chart) .seat-print-actions .is-pdf {
     grid-area: pdf;
     align-self: center;
     justify-self: end;
     margin: clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px) clamp(6px, 1vh, 10px) 0;
+    z-index: 1;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-stage {
+  .seat-assign:has(.seat-room) .seat-print-stage,
+  .seat-assign:has(.bus-chart) .seat-print-stage {
     grid-area: stage;
     min-height: 0;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-opts {
+  .seat-assign:has(.seat-room) .seat-print-stage.is-pair {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: auto;
+    overscroll-behavior: contain;
+    gap: 16px;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-opts,
+  .seat-assign:has(.bus-chart) .seat-print-opts {
     grid-area: opts;
     box-sizing: border-box;
     width: 100%;
-    justify-content: flex-start;
+    justify-content: center;
+    flex-wrap: nowrap;
     gap: 8px 12px;
+    margin-bottom: 3vh;
     padding: clamp(6px, 1vh, 10px) clamp(8px, 2vw, 16px);
     background: color-mix(in srgb, var(--card) 96%, white);
     border-top: 1px solid var(--line);
@@ -9896,13 +10000,32 @@ button.att-card:focus-visible,
     z-index: 40;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-opts .toolbar-drop-menu {
+  .seat-assign:has(.seat-room) .seat-print-opts .toolbar-label,
+  .seat-assign:has(.bus-chart) .seat-print-opts .toolbar-label {
+    display: none;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-opts .seat-style-drop,
+  .seat-assign:has(.seat-room) .seat-print-opts .seat-style-drop .toolbar-drop-btn,
+  .seat-assign:has(.seat-room) .seat-print-opts .seat-style-drop .toolbar-drop-menu,
+  .seat-assign:has(.seat-room) .seat-print-opts .seat-style-drop .toolbar-drop-menu button,
+  .seat-assign:has(.bus-chart) .seat-print-opts .seat-style-drop,
+  .seat-assign:has(.bus-chart) .seat-print-opts .seat-style-drop .toolbar-drop-btn,
+  .seat-assign:has(.bus-chart) .seat-print-opts .seat-style-drop .toolbar-drop-menu,
+  .seat-assign:has(.bus-chart) .seat-print-opts .seat-style-drop .toolbar-drop-menu button {
+    width: auto;
+    min-width: 6.4rem;
+  }
+
+  .seat-assign:has(.seat-room) .seat-print-opts .toolbar-drop-menu,
+  .seat-assign:has(.bus-chart) .seat-print-opts .toolbar-drop-menu {
     top: auto;
     bottom: calc(100% - 2px);
     padding: 6px 0 8px;
   }
 
-  .seat-assign:has(.seat-room) .seat-print-chrome .seg {
+  .seat-assign:has(.seat-room) .seat-print-chrome .seg,
+  .seat-assign:has(.bus-chart) .seat-print-chrome .seg {
     height: auto;
     min-height: 0;
     display: inline-flex;
@@ -9913,7 +10036,11 @@ button.att-card:focus-visible,
   .seat-assign:has(.seat-room) .seat-print-chrome .toolbar-drop-btn,
   .seat-assign:has(.seat-room) .seat-print-teacher,
   .seat-assign:has(.seat-room) .seat-print-back,
-  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf {
+  .seat-assign:has(.seat-room) .seat-print-actions .is-pdf,
+  .seat-assign:has(.bus-chart) .seat-print-chrome .seg button,
+  .seat-assign:has(.bus-chart) .seat-print-chrome .toolbar-drop-btn,
+  .seat-assign:has(.bus-chart) .seat-print-back,
+  .seat-assign:has(.bus-chart) .seat-print-actions .is-pdf {
     height: auto;
     min-height: 0;
     box-sizing: border-box;
@@ -9954,7 +10081,7 @@ button.att-card:focus-visible,
     grid-auto-columns: unset;
   }
 
-  /* 預覽欄位：隱藏確認欄位標題與「使用／欄位」表頭。 */
+  /* 排座位／遊覽車／掃地：確認預覽頁隱藏標題與「使用／欄位」表頭。 */
   .app.is-flow.is-master.step-map .panel-head {
     display: none;
   }
@@ -10000,26 +10127,30 @@ button.att-card:focus-visible,
     aspect-ratio: 1 / 1;
   }
 
-  /* 排房間分配：資料夾改橫向長方形，板面 3×2。 */
+  /* 排房間分配：一列一個房間模塊；模塊內床位 3×2；模塊高度跟內容，避免互壓。 */
   .room-board .sweep-folder-board {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-auto-rows: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: max-content;
     align-content: start;
-    gap: 8px;
+    align-items: stretch;
+    gap: 12px;
     padding: 8px;
   }
 
   .room-board .room-folder {
-    aspect-ratio: 3 / 2;
+    aspect-ratio: auto;
+    align-self: stretch;
     min-height: 0;
     height: auto;
     max-height: none;
+    overflow: hidden;
   }
 
   .room-board .room-folder > .sweep-folder-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
+    flex: none;
+    height: auto;
+    min-height: 72px;
+    overflow: visible;
   }
 
   .room-board .room-folder .room-slot,
@@ -10027,9 +10158,9 @@ button.att-card:focus-visible,
     aspect-ratio: 3 / 2;
   }
 
-  .room-folder > .sweep-folder-body.is-compact,
-  .room-folder > .sweep-folder-body.is-wide {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .room-board .room-folder > .sweep-folder-body.is-compact,
+  .room-board .room-folder > .sweep-folder-body.is-wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   }
 }

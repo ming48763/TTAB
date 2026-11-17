@@ -118,7 +118,15 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
 
   useLayoutEffect(() => {
     function fitChrome() {
-      fitPreviewRow(barFitRef.current, 'spread')
+      const row = barFitRef.current
+      if (!row || getComputedStyle(row).display === 'contents') {
+        if (row) {
+          row.style.zoom = ''
+          row.style.width = ''
+        }
+        return
+      }
+      fitPreviewRow(row, 'spread')
     }
     fitChrome()
     window.addEventListener('resize', fitChrome)
@@ -194,32 +202,36 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
   return (
     <div className={`seat-print-preview is-a4-${paperDir}`} style={{ ['--print-scale' as string]: String(scale) }}>
       <style>{`@media print { @page { size: A4 ${paperDir}; margin: 0; } }`}</style>
-      <header className="seat-print-bar no-print">
-        <div className="preview-fit-row" ref={barFitRef}>
-          <div className="seat-print-paper">
-            <span className="toolbar-label">印出尺寸</span>
-            <div className="seg">
-              <button
-                type="button"
-                className={paperDir === 'landscape' ? 'is-active' : ''}
-                onClick={() => setPaperDir('landscape')}
-              >
-                A4 橫向
-              </button>
-              <button
-                type="button"
-                className={paperDir === 'portrait' ? 'is-active' : ''}
-                onClick={() => setPaperDir('portrait')}
-              >
-                A4 直向
-              </button>
-            </div>
+      <div className="seat-print-chrome no-print" ref={barFitRef}>
+        <div className="seat-print-size seat-print-paper">
+          <span className="toolbar-label">印出尺寸</span>
+          <div className="seg">
+            <button
+              type="button"
+              className={paperDir === 'landscape' ? 'is-active' : ''}
+              onClick={() => setPaperDir('landscape')}
+            >
+              A4 橫向
+            </button>
+            <button
+              type="button"
+              className={paperDir === 'portrait' ? 'is-active' : ''}
+              onClick={() => setPaperDir('portrait')}
+            >
+              A4 直向
+            </button>
           </div>
+        </div>
+        <div className="seat-print-opts">
           <div className="seat-print-paper">
             <span className="toolbar-label">樣式</span>
             <div className="toolbar-drop seat-style-drop">
               <button type="button" className="toolbar-drop-btn">
-                {SEAT_INK_STYLES.find((style) => style.id === inkStyle)?.label ?? '預設'}
+                {(() => {
+                  const label = SEAT_INK_STYLES.find((style) => style.id === inkStyle)?.label ?? '預設'
+                  const phone = document.documentElement.classList.contains('is-ua-phone')
+                  return phone && label === '預設' ? '預設樣式' : label
+                })()}
               </button>
               <div className="toolbar-drop-menu">
                 {SEAT_INK_STYLES.map((opt) => (
@@ -238,7 +250,7 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
           </div>
         </div>
         <div className="seat-print-actions">
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn seat-print-back" onClick={onClose}>
             返回編輯
           </button>
           <button
@@ -256,7 +268,7 @@ export function BusPrintPreview({ names, model, busName, plateNo, onClose }: Pro
             開始列印
           </button>
         </div>
-      </header>
+      </div>
       <div className="seat-print-stage" ref={stageRef}>
         <div className="pages-preview-frame" style={{ width: `${framePx.w}px`, height: `${framePx.h}px` }}>
           <div

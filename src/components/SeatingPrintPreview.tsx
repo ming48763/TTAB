@@ -111,17 +111,25 @@ export function SeatingPrintPreview({
       const naturalW = sheet.offsetWidth
       const naturalH = sheet.offsetHeight
       if (naturalW <= 0 || naturalH <= 0) return
-      const count = teacherView ? 2 : 1
-      const gap = count > 1 ? 28 : 0
+      const phoneStack =
+        teacherView && document.documentElement.classList.contains('is-ua-phone')
+      const count = phoneStack ? 1 : teacherView ? 2 : 1
+      const gap = !phoneStack && count > 1 ? 28 : 0
       const stageStyle = getComputedStyle(stage)
       const padX =
         (Number.parseFloat(stageStyle.paddingLeft) || 0) + (Number.parseFloat(stageStyle.paddingRight) || 0)
       const padY =
         (Number.parseFloat(stageStyle.paddingTop) || 0) + (Number.parseFloat(stageStyle.paddingBottom) || 0)
       const availW = Math.max(0, (stage.clientWidth - padX - gap) / count)
-      const availH = Math.max(0, stage.clientHeight - padY)
-      if (availW <= 0 || availH <= 0) return
-      const next = Math.min(availW / naturalW, availH / naturalH, 1)
+      if (availW <= 0) return
+      const next = phoneStack
+        ? Math.min(availW / naturalW, 1)
+        : (() => {
+            const availH = Math.max(0, stage.clientHeight - padY)
+            if (availH <= 0) return 0
+            return Math.min(availW / naturalW, availH / naturalH, 1)
+          })()
+      if (next <= 0) return
       const frameW = Math.round(naturalW * next)
       const used = frameW / naturalW
       const frameH = Math.round(naturalH * used)
@@ -255,7 +263,11 @@ export function SeatingPrintPreview({
             <span className="toolbar-label">樣式</span>
             <div className="toolbar-drop seat-style-drop">
               <button type="button" className="toolbar-drop-btn">
-                {SEAT_INK_STYLES.find((s) => s.id === inkStyle)?.label ?? '預設'}
+                {(() => {
+                  const label = SEAT_INK_STYLES.find((s) => s.id === inkStyle)?.label ?? '預設'
+                  const phone = document.documentElement.classList.contains('is-ua-phone')
+                  return phone && label === '預設' ? '預設樣式' : label
+                })()}
               </button>
               <div className="toolbar-drop-menu">
                 {SEAT_INK_STYLES.map((opt) => (
