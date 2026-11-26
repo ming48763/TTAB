@@ -180,7 +180,7 @@ export function BusBoard({ rows, mappings, coaches, coachIndex, roles, onRoles, 
               <span className="bus-info-title">遊覽車資訊</span>
               <svg className="bus-info-chevron" viewBox="0 0 16 16" aria-hidden="true">
                 <path
-                  d="M3.5 10 L8 5.5 L12.5 10"
+                  d="M3.5 6 L8 10.5 L12.5 6"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.8"
