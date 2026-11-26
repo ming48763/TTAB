@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BUS_MODELS, busModel, busPlan, busSeatOrder, type BusCoach } from '../lib/busLayout'
+import { matchesPhoneScreen } from '../lib/screenLayout'
 import { studentCardLines, studentCardText, studentKey } from '../lib/seating'
 import type { ColumnMapping, StudentRow } from '../types'
 import { uid } from '../types'
@@ -29,6 +30,7 @@ export function BusBoard({ rows, mappings, coaches, coachIndex, roles, onRoles, 
   const [confirmClear, setConfirmClear] = useState(false)
   const [printPreview, setPrintPreview] = useState(false)
   const [rolePicker, setRolePicker] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const coach = coaches[coachIndex] ?? coaches[0]
   const assignments = coach?.assignments ?? {}
   const [shownFields, setShownFields] = useState<string[]>(() => {
@@ -163,69 +165,92 @@ export function BusBoard({ rows, mappings, coaches, coachIndex, roles, onRoles, 
               }}
             />
             </div>
-            <aside className="bus-info no-print">
-              <h2>遊覽車資訊</h2>
-              <label>
-                <span>車種</span>
-                <select
-                  aria-label="車種"
-                  value={busModel(coach?.model).id}
-                  onChange={(event) => changeModel(event.target.value)}
-                >
-                  {BUS_MODELS.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>車輛名稱</span>
-                <input
-                  value={coach?.name ?? ''}
-                  aria-label="車輛名稱"
-                  onChange={(event) => patchCoach({ name: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>車牌</span>
-                <input
-                  value={coach?.plate ?? ''}
-                  aria-label="車牌"
-                  onChange={(event) => patchCoach({ plate: event.target.value })}
-                />
-              </label>
-              <div className="bus-info-nav">
-                <button type="button" aria-label="上一輛" disabled={coachIndex <= 0} onClick={() => onCoachIndex(coachIndex - 1)}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M10 3.5 L5.5 8 L10 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <span>
-                  {coachIndex + 1} / {coaches.length}
-                </span>
-                <button
-                  type="button"
-                  aria-label="下一輛"
-                  disabled={coachIndex >= coaches.length - 1}
-                  onClick={() => onCoachIndex(coachIndex + 1)}
-                >
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M6 3.5 L10.5 8 L6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
+            <aside className={`bus-info no-print${infoOpen ? ' is-open' : ''}`}>
               <button
                 type="button"
-                className="bus-info-add"
-                aria-label="新增遊覽車"
+                className="bus-info-head"
+                aria-expanded={infoOpen}
+                aria-controls="bus-info-panel"
                 onClick={() => {
-                  onCoaches([...coaches, { id: uid('bus'), name: '', plate: '', model: busModel(coach?.model).id, assignments: {} }])
-                  onCoachIndex(coaches.length)
+                  if (!matchesPhoneScreen()) return
+                  setInfoOpen((open) => !open)
                 }}
               >
-                +
+                <span className="bus-info-title">遊覽車資訊</span>
+                <svg className="bus-info-chevron" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M3.5 6 L8 10.5 L12.5 6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
+              <div className="bus-info-panel" id="bus-info-panel">
+                <label>
+                  <span>車種</span>
+                  <select
+                    aria-label="車種"
+                    value={busModel(coach?.model).id}
+                    onChange={(event) => changeModel(event.target.value)}
+                  >
+                    {BUS_MODELS.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>車輛名稱</span>
+                  <input
+                    value={coach?.name ?? ''}
+                    aria-label="車輛名稱"
+                    onChange={(event) => patchCoach({ name: event.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>車牌</span>
+                  <input
+                    value={coach?.plate ?? ''}
+                    aria-label="車牌"
+                    onChange={(event) => patchCoach({ plate: event.target.value })}
+                  />
+                </label>
+                <div className="bus-info-nav">
+                  <button type="button" aria-label="上一輛" disabled={coachIndex <= 0} onClick={() => onCoachIndex(coachIndex - 1)}>
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M10 3.5 L5.5 8 L10 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <span>
+                    {coachIndex + 1} / {coaches.length}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="下一輛"
+                    disabled={coachIndex >= coaches.length - 1}
+                    onClick={() => onCoachIndex(coachIndex + 1)}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                      <path d="M6 3.5 L10.5 8 L6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="bus-info-add"
+                  aria-label="新增遊覽車"
+                  onClick={() => {
+                    onCoaches([...coaches, { id: uid('bus'), name: '', plate: '', model: busModel(coach?.model).id, assignments: {} }])
+                    onCoachIndex(coaches.length)
+                  }}
+                >
+                  +
+                </button>
+              </div>
             </aside>
           </div>
           <div className="seat-corner-actions no-print">

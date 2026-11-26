@@ -3,7 +3,7 @@ import { HomeIndex } from './home/HomeIndex'
 import { PhonePortraitLock } from './components/PhonePortraitLock'
 import type { ToolId } from './home/tools'
 import { beginPage, clearWork, isRotateReload, readWork, restoringWork } from './lib/workSession'
-import { recordToolUse, recordVisit, readUsageStats, type UsageStats } from './lib/usageStats'
+import { recordToolUse, recordVisit } from './lib/usageStats'
 import { AttendanceTool } from './tools/AttendanceTool'
 import { PlateNameTool } from './tools/PlateNameTool'
 import { SeatingTool } from './tools/SeatingTool'
@@ -24,10 +24,9 @@ function withPhoneLock(node: ReactNode) {
 export default function App() {
   beginPage()
   const [tool, setTool] = useState<ToolId | null>(() => (restoringWork() ? readWork()?.tool ?? null : null))
-  const [stats, setStats] = useState<UsageStats>(() => readUsageStats())
 
   useEffect(() => {
-    setStats(recordVisit())
+    recordVisit()
   }, [])
 
   useEffect(() => {
@@ -67,12 +66,12 @@ export default function App() {
   }
 
   function openTool(id: ToolId) {
-    setStats(recordToolUse(id))
+    recordToolUse(id)
     setTool(id)
   }
 
   if (!tool) {
-    return withPhoneLock(<HomeIndex onOpenTool={openTool} stats={stats} />)
+    return withPhoneLock(<HomeIndex onOpenTool={openTool} />)
   }
 
   if (tool === 'plates') {
@@ -107,5 +106,5 @@ export default function App() {
     return withPhoneLock(<RoomTool onHome={goHome} />)
   }
 
-  return withPhoneLock(<HomeIndex onOpenTool={openTool} stats={stats} />)
+  return withPhoneLock(<HomeIndex onOpenTool={openTool} />)
 }

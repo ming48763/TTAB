@@ -141,30 +141,6 @@ button.brand-mark:focus-visible {
   padding: 126px 20px 76px;
 }
 
-.home-stats {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 30;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 6px 8px;
-  margin: 0;
-  padding: 18px 16px calc(14px + env(safe-area-inset-bottom));
-  background: transparent;
-  color: var(--ink-soft);
-  font-size: 0.86rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.home-stats-sep {
-  opacity: 0.55;
-}
-
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -7620,11 +7596,6 @@ button.att-card:focus-visible,
     padding: 14px 16px 8px;
   }
 
-  .app.step-home .home-stats {
-    position: static;
-    padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
-  }
-
   .app.step-home .brand {
     align-items: flex-start;
   }
@@ -8651,11 +8622,42 @@ button.att-card:focus-visible,
   color: var(--ink);
 }
 
-.bus-info h2 {
+.bus-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+  pointer-events: none;
+}
+
+.bus-info-title {
   margin: 0;
   text-align: center;
   font-size: 1rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.bus-info-chevron {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+}
+
+.bus-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .bus-info label {
@@ -10161,6 +10163,62 @@ button.att-card:focus-visible,
   .room-board .room-folder > .sweep-folder-body.is-compact,
   .room-board .room-folder > .sweep-folder-body.is-wide {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 遊覽車編輯：資訊列在上方可展開；座位表左右填滿。 */
+  .seat-assign-scroll:has(.bus-chart) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-width: none;
+    flex: 0 0 auto;
+    order: -1;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info-head {
+    pointer-events: auto;
+    cursor: pointer;
+    justify-content: space-between;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info-title {
+    text-align: left;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info-chevron {
+    display: block;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info.is-open .bus-info-chevron {
+    transform: rotate(180deg);
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-info:not(.is-open) .bus-info-panel {
+    display: none;
+  }
+
+  .seat-assign-scroll:has(.bus-chart) .bus-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    place-items: center center;
+  }
+
+  .seat-assign:has(.bus-chart) .bus-chart {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
   }
   }
 }

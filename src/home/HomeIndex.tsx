@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import { matchesPhoneScreen } from '../lib/screenLayout'
-import { formatCount, type UsageStats } from '../lib/usageStats'
 import { HOME_TOOLS, type ToolId } from './tools'
 import { ToolTile } from './ToolTile'
 
 interface Props {
   onOpenTool: (id: ToolId) => void
-  stats: UsageStats
 }
 
-export function HomeIndex({ onOpenTool, stats }: Props) {
+export function HomeIndex({ onOpenTool }: Props) {
   const headerRef = useRef<HTMLElement>(null)
   const [line, setLine] = useState('')
 
@@ -76,13 +74,6 @@ export function HomeIndex({ onOpenTool, stats }: Props) {
             ))}
         </div>
       </main>
-      <footer className="home-stats no-print" aria-label="使用統計">
-        <span>瀏覽 {formatCount(stats.visits)} 人次</span>
-        <span className="home-stats-sep" aria-hidden>
-          ·
-        </span>
-        <span>功能使用 {formatCount(stats.uses)} 次</span>
-      </footer>
     </div>
   )
 }
